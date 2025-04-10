@@ -1,0 +1,406 @@
+/**
+ * LiteSpeed Plugin CSS
+ * Styles for the LiteSpeed CDN integration with AlgorithmPress
+ */
+
+/* LiteSpeed Panel */
+.litespeed-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    max-width: 90%;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    z-index: 9999;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Panel Header */
+.litespeed-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: #0073aa;
+    color: white;
+}
+
+.litespeed-panel-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.litespeed-panel-header .close-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+/* Panel Body */
+.litespeed-panel-body {
+    padding: 20px;
+    max-height: calc(90vh - 60px);
+    overflow-y: auto;
+}
+
+/* Form Elements */
+.litespeed-form-group {
+    margin-bottom: 15px;
+}
+
+.litespeed-form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.litespeed-form-group input[type="text"],
+.litespeed-form-group select,
+.litespeed-form-group textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.litespeed-form-group input[type="text"]:focus,
+.litespeed-form-group select:focus,
+.litespeed-form-group textarea:focus {
+    border-color: #0073aa;
+    outline: none;
+    box-shadow: 0 0 0 1px #0073aa;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.toggle-label input[type="checkbox"]:focus {
+    outline: 1px solid #0073aa;
+}
+
+/* Buttons */
+.litespeed-button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.litespeed-btn {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.litespeed-btn:active {
+    transform: translateY(1px);
+}
+
+.litespeed-primary-btn {
+    background: #0073aa;
+    color: white;
+}
+
+.litespeed-primary-btn:hover {
+    background: #005d8c;
+}
+
+.litespeed-secondary-btn {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.litespeed-secondary-btn:hover {
+    background: #e0e0e0;
+}
+
+.litespeed-danger-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.litespeed-danger-btn:hover {
+    background: #bd2130;
+}
+
+/* Statistics */
+.litespeed-stat-group {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.litespeed-stat-item {
+    flex: 1;
+    background: #f5f5f5;
+    border-radius: 6px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s;
+}
+
+.litespeed-stat-item:hover {
+    transform: translateY(-2px);
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+}
+
+.stat-value.enabled {
+    color: #28a745;
+}
+
+.stat-value.disabled {
+    color: #dc3545;
+}
+
+/* Messages */
+.litespeed-message {
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.litespeed-message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.litespeed-message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.litespeed-message.info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+/* Tabs */
+.litespeed-tabs {
+    display: flex;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+.litespeed-tab {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.litespeed-tab:hover {
+    background: #f5f5f5;
+}
+
+.litespeed-tab.active {
+    border-bottom-color: #0073aa;
+    font-weight: 500;
+}
+
+.litespeed-tab-content {
+    display: none;
+}
+
+.litespeed-tab-content.active {
+    display: block;
+}
+
+/* Card layout */
+.litespeed-card {
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.litespeed-card-header {
+    font-weight: 500;
+    font-size: 16px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+/* Loading spinner */
+.litespeed-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 115, 170, 0.3);
+    border-radius: 50%;
+    border-top-color: #0073aa;
+    animation: litespeed-spin 1s infinite linear;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+@keyframes litespeed-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Dashboard Widget */
+.litespeed-dashboard-widget {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.litespeed-dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.litespeed-dashboard-title {
+    font-weight: 600;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+}
+
+.litespeed-dashboard-title i {
+    margin-right: 8px;
+    color: #0073aa;
+}
+
+.litespeed-dashboard-actions button {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 5px;
+    transition: color 0.2s;
+}
+
+.litespeed-dashboard-actions button:hover {
+    color: #333;
+}
+
+.litespeed-dashboard-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.litespeed-overview-stat {
+    flex: 1;
+    min-width: 120px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.litespeed-overview-stat .stat-value {
+    font-size: 20px;
+    font-weight: 600;
+    color: #0073aa;
+}
+
+.litespeed-overview-stat .stat-label {
+    font-size: 12px;
+    color: #666;
+    margin-top: 5px;
+}
+
+/* Dock button and panel integration */
+.dock-button.litespeed-dock-btn i {
+    color: #0073aa;
+}
+
+.system-panel.litespeed-panel {
+    background: white;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .litespeed-panel {
+        width: 95%;
+    }
+    
+    .litespeed-stat-group {
+        flex-direction: column;
+    }
+    
+    .litespeed-button-group {
+        flex-direction: column;
+    }
+    
+    .litespeed-button-group .litespeed-btn {
+        width: 100%;
+    }
+}
+
+/* Animation for lazy loaded images */
+@keyframes litespeed-fadein {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+img.litespeed-lazy-loading {
+    opacity: 0;
+}
+
+img.litespeed-lazy-loaded {
+    animation: litespeed-fadein 0.5s;
+}
