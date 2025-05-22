@@ -1,6 +1,8 @@
 /**
  * Cubbit DS3 Storage Integration
  * Enables decentralized storage for PHP-WASM Builder projects
+ * 
+ * Depends on: error-handling.js (for AP.handleError)
  */
 
 const CubbitStorage = (function() {
@@ -50,10 +52,20 @@ const CubbitStorage = (function() {
             resolve();
           })
           .catch(error => {
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, 'Cubbit Initialization Failed');
+            } else {
+              console.error('Cubbit Initialization Failed:', error);
+            }
             notifyListeners('error', { error });
             reject(error);
           });
       } catch (error) {
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Cubbit Initialization Error');
+        } else {
+          console.error('Cubbit Initialization Error:', error);
+        }
         notifyListeners('error', { error });
         reject(error);
       }
@@ -84,7 +96,11 @@ const CubbitStorage = (function() {
           resolve(data);
         })
         .catch(error => {
-          console.error('Failed to verify Cubbit credentials:', error);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'Failed to verify Cubbit credentials');
+          } else {
+            console.error('Failed to verify Cubbit credentials:', error);
+          }
           reject(error);
         });
     });
@@ -119,7 +135,11 @@ const CubbitStorage = (function() {
           }
         })
         .catch(error => {
-          console.error('Failed to check/create bucket:', error);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'Failed to check/create Cubbit bucket');
+          } else {
+            console.error('Failed to check/create bucket:', error);
+          }
           reject(error);
         });
     });
@@ -153,7 +173,11 @@ const CubbitStorage = (function() {
           resolve(true);
         })
         .catch(error => {
-          console.error('Failed to create bucket:', error);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to create Cubbit bucket ${bucketName}`);
+          } else {
+            console.error('Failed to create bucket:', error);
+          }
           reject(error);
         });
     });
@@ -168,7 +192,13 @@ const CubbitStorage = (function() {
   function saveProject(project, projectId) {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Save Project Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -183,11 +213,19 @@ const CubbitStorage = (function() {
             resolve(result);
           })
           .catch(error => {
-            console.error(`Failed to save project ${projectId}:`, error);
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, `Failed to save project ${projectId} to Cubbit`);
+            } else {
+              console.error(`Failed to save project ${projectId}:`, error);
+            }
             reject(error);
           });
       } catch (error) {
-        console.error('Failed to save project:', error);
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Failed to save project (serialization error)');
+        } else {
+          console.error('Failed to save project:', error);
+        }
         reject(error);
       }
     });
@@ -201,7 +239,13 @@ const CubbitStorage = (function() {
   function loadProject(projectId) {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Load Project Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -211,12 +255,22 @@ const CubbitStorage = (function() {
             const project = JSON.parse(projectData);
             resolve(project);
           } catch (error) {
-            console.error(`Failed to parse project data for ${projectId}:`, error);
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, `Failed to parse project data for ${projectId}`);
+            } else {
+              console.error(`Failed to parse project data for ${projectId}:`, error);
+            }
             reject(error);
           }
         })
         .catch(error => {
-          console.error(`Failed to load project ${projectId}:`, error);
+          // The downloadFile function should already call AP.handleError for download errors
+          // So, we only need to log if AP.handleError is not available or handle specific load context
+          if (!(window.AP && window.AP.handleError)) {
+             console.error(`Failed to load project ${projectId}:`, error);
+          }
+          // If AP.handleError was called in downloadFile, it might have already shown a toast.
+          // If not, one could be added here specifically for "load project" context if desired.
           reject(error);
         });
     });
@@ -229,7 +283,13 @@ const CubbitStorage = (function() {
   function listProjects() {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'List Projects Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -249,9 +309,13 @@ const CubbitStorage = (function() {
                 lastModified: new Date(metadata.lastModified),
                 size: metadata.size
               }))
-              .catch(error => {
-                console.warn(`Failed to get metadata for project ${projectId}:`, error);
-                return null;
+              .catch(error => { // This is a warning, not a full stop error for the whole list
+                if (window.AP && window.AP.showToast) { // Using showToast for warnings
+                  window.AP.showToast(`Could not retrieve metadata for project ${projectId}. It might be corrupted or incomplete. Error: ${error.message}`, 'warning');
+                } else {
+                  console.warn(`Failed to get metadata for project ${projectId}:`, error);
+                }
+                return null; // Still return null so Promise.all continues
               });
           });
           
@@ -264,7 +328,11 @@ const CubbitStorage = (function() {
           resolve(validProjects);
         })
         .catch(error => {
-          console.error('Failed to list projects:', error);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'Failed to list projects from Cubbit');
+          } else {
+            console.error('Failed to list projects:', error);
+          }
           reject(error);
         });
     });
@@ -278,17 +346,30 @@ const CubbitStorage = (function() {
   function deleteProject(projectId) {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Delete Project Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
       deleteFile(`projects/${projectId}.json`)
         .then(() => {
-          console.log(`Project deleted from Cubbit: ${projectId}`);
+          if (window.AP && window.AP.showToast) {
+            window.AP.showToast(`Project ${projectId} deleted successfully from Cubbit.`, 'success');
+          } else {
+            console.log(`Project deleted from Cubbit: ${projectId}`);
+          }
           resolve(true);
         })
         .catch(error => {
-          console.error(`Failed to delete project ${projectId}:`, error);
+          // deleteFile should call AP.handleError
+          if (!(window.AP && window.AP.handleError)) {
+             console.error(`Failed to delete project ${projectId}:`, error);
+          }
           reject(error);
         });
     });
@@ -305,7 +386,13 @@ const CubbitStorage = (function() {
   function uploadFile(path, content, contentType = 'application/octet-stream', metadata = {}) {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Upload File Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -349,12 +436,24 @@ const CubbitStorage = (function() {
             url: `${baseUrl}/s3/buckets/${bucketName}/objects/${encodeURIComponent(path)}`
           });
         } else {
-          reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+          const error = new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Cubbit upload for ${path} failed`);
+          } else {
+            console.error(error.message);
+          }
+          reject(error);
         }
       };
       
       xhr.onerror = () => {
-        reject(new Error('Network error during upload'));
+        const error = new Error('Network error during upload');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, `Cubbit upload network error for ${path}`);
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
       };
       
       // Send the blob
@@ -370,7 +469,13 @@ const CubbitStorage = (function() {
   function downloadFile(path) {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Download File Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -406,7 +511,13 @@ const CubbitStorage = (function() {
               resolve(reader.result);
             };
             reader.onerror = () => {
-              reject(new Error('Failed to read blob as text'));
+              const error = new Error('Failed to read blob as text');
+              if (window.AP && window.AP.handleError) {
+                window.AP.handleError(error, `File content read error for ${path}`);
+              } else {
+                console.error(error.message);
+              }
+              reject(error);
             };
             reader.readAsText(blob);
           } else {
@@ -414,12 +525,24 @@ const CubbitStorage = (function() {
             resolve(blob);
           }
         } else {
-          reject(new Error(`Download failed: ${xhr.status} ${xhr.statusText}`));
+          const error = new Error(`Download failed: ${xhr.status} ${xhr.statusText}`);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Cubbit download for ${path} failed`);
+          } else {
+            console.error(error.message);
+          }
+          reject(error);
         }
       };
       
       xhr.onerror = () => {
-        reject(new Error('Network error during download'));
+        const error = new Error('Network error during download');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, `Cubbit download network error for ${path}`);
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
       };
       
       // Send the request
@@ -435,7 +558,13 @@ const CubbitStorage = (function() {
   function getFileMetadata(path) {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Get File Metadata Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -472,7 +601,11 @@ const CubbitStorage = (function() {
           });
         })
         .catch(error => {
-          console.error(`Failed to get metadata for ${path}:`, error);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to get metadata for ${path} from Cubbit`);
+          } else {
+            console.error(`Failed to get metadata for ${path}:`, error);
+          }
           reject(error);
         });
     });
@@ -486,7 +619,13 @@ const CubbitStorage = (function() {
   function deleteFile(path) {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Delete File Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -507,7 +646,11 @@ const CubbitStorage = (function() {
           resolve(true);
         })
         .catch(error => {
-          console.error(`Failed to delete ${path}:`, error);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to delete ${path} from Cubbit`);
+          } else {
+            console.error(`Failed to delete ${path}:`, error);
+          }
           reject(error);
         });
     });
@@ -521,7 +664,13 @@ const CubbitStorage = (function() {
   function listDirectory(prefix = '') {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'List Directory Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -553,7 +702,11 @@ const CubbitStorage = (function() {
           resolve(files);
         })
         .catch(error => {
-          console.error(`Failed to list directory ${prefix}:`, error);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to list Cubbit directory ${prefix}`);
+          } else {
+            console.error(`Failed to list directory ${prefix}:`, error);
+          }
           reject(error);
         });
     });
@@ -568,7 +721,13 @@ const CubbitStorage = (function() {
   function getPublicUrl(path, expiresIn = 3600) {
     return new Promise((resolve, reject) => {
       if (!isInitialized) {
-        reject(new Error('Cubbit storage is not initialized'));
+        const error = new Error('Cubbit storage is not initialized');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Get Public URL Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -592,7 +751,11 @@ const CubbitStorage = (function() {
           resolve(data.url);
         })
         .catch(error => {
-          console.error(`Failed to generate public URL for ${path}:`, error);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to generate public URL for ${path} from Cubbit`);
+          } else {
+            console.error(`Failed to generate public URL for ${path}:`, error);
+          }
           reject(error);
         });
     });

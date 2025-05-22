@@ -1,10 +1,18 @@
 /**
  * AlgorithmPress Module Integration Framework
  * Creates a standardized system for module registration, discovery, and integration
+ * 
+ * Depends on: error-handling.js (for AP.handleError and AP.showToast)
  */
 
 const ModuleFramework = (function() {
   'use strict';
+
+  // Configuration for module paths
+  const AlgorithmPressModulePaths = {
+    localBasePath: './js files/', // Assuming nexus-grid.js is or will be in js files/
+    cdnBasePath: 'https://s3.cubbit.eu/algorithmpress/'
+  };
   
   // Private module registry
   const _modules = {};
@@ -62,7 +70,12 @@ const ModuleFramework = (function() {
           try {
             callback(data);
           } catch (error) {
-            console.error(`Error in event handler for ${event}:`, error);
+            // console.error(`Error in event handler for ${event}:`, error);
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, `Error in event handler for ${event}`);
+            } else {
+              console.error(`Error in event handler for ${event}:`, error);
+            }
           }
         });
       },
@@ -241,7 +254,12 @@ const ModuleFramework = (function() {
             error
           });
           
-          console.error(`Failed to load module ${module.name} (${moduleId}):`, error);
+          // console.error(`Failed to load module ${module.name} (${moduleId}):`, error);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to load module ${module.name} (${moduleId})`);
+          } else {
+            console.error(`Failed to load module ${module.name} (${moduleId}):`, error);
+          }
           
           reject(error);
         });
@@ -530,7 +548,7 @@ const ModuleFramework = (function() {
       registerModule({
         id: 'voice-control',
         name: 'Voice Control System',
-        url: 'https://s3.cubbit.eu/algorithmpress/voice-control-system.js',
+        url: AlgorithmPressModulePaths.cdnBasePath + 'voice-control-system.js',
         dependencies: [],
         autoStart: false
       });
@@ -549,7 +567,7 @@ const ModuleFramework = (function() {
       registerModule({
         id: 'nexus-grid',
         name: 'NexusGrid',
-        url: 'nexus-grid.js',
+        url: AlgorithmPressModulePaths.localBasePath + 'nexus-grid.js', // Assuming it is in js files/
         dependencies: [],
         autoStart: false
       });
@@ -569,7 +587,7 @@ const ModuleFramework = (function() {
       registerModule({
         id: 'demo-system',
         name: 'Demonstration System',
-        url: 'https://s3.cubbit.eu/algorithmpress/demo-system-module.js',
+        url: AlgorithmPressModulePaths.cdnBasePath + 'demo-system-module.js',
         dependencies: ['nexus-grid'],
         autoStart: false
       });
@@ -588,7 +606,7 @@ const ModuleFramework = (function() {
       registerModule({
         id: 'rainbow-indicator',
         name: 'Rainbow Indicator',
-        url: 'https://s3.cubbit.eu/algorithmpress/rainbow-indicator.js',
+        url: AlgorithmPressModulePaths.cdnBasePath + 'rainbow-indicator.js',
         dependencies: [],
         autoStart: false
       });
@@ -607,7 +625,7 @@ const ModuleFramework = (function() {
       registerModule({
         id: 'cubbit-storage',
         name: 'Cubbit Storage',
-        url: 'https://s3.cubbit.eu/algorithmpress/cubbit-storage-integration.js',
+        url: AlgorithmPressModulePaths.cdnBasePath + 'cubbit-storage-integration.js',
         dependencies: [],
         autoStart: false
       });
@@ -617,7 +635,7 @@ const ModuleFramework = (function() {
     registerModule({
       id: 'implementation',
       name: 'Implementation Example',
-      url: 'https://s3.cubbit.eu/algorithmpress/implementation-example-module.js',
+      url: AlgorithmPressModulePaths.cdnBasePath + 'implementation-example-module.js',
       dependencies: ['rainbow-indicator'],
       autoStart: false
     });
@@ -690,8 +708,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             })
             .catch(error => {
-              console.error(`Failed to load module ${moduleId}:`, error);
-              showToast('error', `Failed to load ${moduleId.replace('-', ' ')}: ${error.message}`);
+              // console.error(`Failed to load module ${moduleId}:`, error);
+              if (window.AP && window.AP.handleError) {
+                window.AP.handleError(error, `Failed to load module ${moduleId}`);
+              } else {
+                console.error(`Failed to load module ${moduleId}:`, error);
+                // Fallback to console if AP.showToast is also not available for some reason
+                if (window.AP && window.AP.showToast) {
+                    window.AP.showToast(`Failed to load ${moduleId.replace('-', ' ')}: ${error.message}`, 'error');
+                } else {
+                    console.error(`Failed to load ${moduleId.replace('-', ' ')}: ${error.message}`);
+                }
+              }
             });
         } else {
           // Toggle panel if module has a togglePanel method
@@ -730,16 +758,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
-  // Function to show toast notification
-  function showToast(type, message) {
-    // Check if function exists in the global scope
-    if (typeof window.showToast === 'function') {
-      window.showToast(type, message);
-      return;
-    }
-    
-    console.log(`${type}: ${message}`);
-  }
+  // Local showToast function is removed as global window.AP.showToast or window.showToast should be used.
 });
 
 // Export module framework to global scope

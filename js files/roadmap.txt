@@ -1,1 +1,18 @@
-=
+## 🛣️ Roadmap
+
+We're actively developing AlgorithmPress with these upcoming features:
+
+### Coming in the Next 3 Months
+
+- **App Ecosystem**: A marketplace for components and templates
+- **Enhanced AI Integration**: Intelligent content and design assistance
+- **Visual Component Builder**: Create components without writing code
+- **Advanced Decentralization**: More powerful distributed storage capabilities
+- **ConvoBuilder CMS Integration**: Seamless integration with our full CMS system
+
+### Future Directions
+
+- Edge Computing Integration
+- Federated Identity System
+- Cross-App Communication Protocol
+- Advanced Developer Tools

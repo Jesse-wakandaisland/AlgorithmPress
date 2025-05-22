@@ -114,7 +114,17 @@ function nara_sync_from_google_sheets() {
     // Update sync status to active
     update_option('nara_sync_status', 'active');
     
-    $csv_url = 'https://docs.google.com/spreadsheets/d/1uhAiXCgdToubXPAqvQZH0rYzwp6XjBYvvEoIoLz1Kkc/pub?output=csv';
+    $options = get_option('nara_data_integration_settings');
+    $csv_url = isset($options['google_sheet_url']) ? $options['google_sheet_url'] : '';
+
+    if (empty($csv_url)) {
+        error_log('NARA Data Integration: Google Sheet URL is not configured. Sync aborted.');
+        update_option('nara_sync_status', 'idle');
+        // Optionally, add an admin notice here if this is a manually triggered sync context
+        // For cron, error_log is appropriate.
+        return;
+    }
+    
     $response = wp_remote_get($csv_url);
 
     if (is_wp_error($response)) {
@@ -247,4 +257,103 @@ function nara_clear_cron() {
     wp_clear_scheduled_hook('nara_sync_cron_event');
 }
 register_deactivation_hook(__FILE__, 'nara_clear_cron');
+
+// Admin Menu and Settings Page
+add_action('admin_menu', 'nara_data_integration_add_admin_menu');
+function nara_data_integration_add_admin_menu() {
+    add_options_page(
+        'NARA Data Integration Settings',
+        'NARA Data Sync',
+        'manage_options',
+        'nara-data-integration',
+        'nara_data_integration_settings_page'
+    );
+}
+
+add_action('admin_init', 'nara_data_integration_settings_init');
+function nara_data_integration_settings_init() {
+    register_setting(
+        'nara_data_integration_settings_group', // Option group
+        'nara_data_integration_settings',       // Option name
+        'nara_data_integration_settings_sanitize' // Sanitization callback
+    );
+
+    add_settings_section(
+        'nara_data_integration_section_main', // ID
+        'Google Sheet Configuration',         // Title
+        'nara_data_integration_section_main_callback', // Callback
+        'nara-data-integration'               // Page
+    );
+
+    add_settings_field(
+        'google_sheet_url',                     // ID
+        'Google Sheet CSV URL',                 // Title
+        'nara_data_integration_google_sheet_url_render', // Callback
+        'nara-data-integration',                // Page
+        'nara_data_integration_section_main'  // Section
+    );
+}
+
+function nara_data_integration_settings_sanitize($input) {
+    $sanitized_input = array();
+    if (isset($input['google_sheet_url'])) {
+        $sanitized_input['google_sheet_url'] = esc_url_raw(trim($input['google_sheet_url']));
+        // Basic validation: check if it looks like a URL and contains 'docs.google.com' and 'pub?output=csv'
+        if (!empty($sanitized_input['google_sheet_url']) && 
+            (!filter_var($sanitized_input['google_sheet_url'], FILTER_VALIDATE_URL) ||
+             strpos($sanitized_input['google_sheet_url'], 'docs.google.com') === false ||
+             strpos($sanitized_input['google_sheet_url'], 'pub?output=csv') === false)) {
+            add_settings_error(
+                'google_sheet_url',
+                'invalid_google_sheet_url',
+                'The provided URL does not seem to be a valid Google Sheet "Publish to the web" CSV URL. Please check the format.',
+                'error'
+            );
+            // Return old value if new one is invalid to prevent saving bad URL
+            $options = get_option('nara_data_integration_settings');
+            return isset($options['google_sheet_url']) ? $options : array('google_sheet_url' => ''); 
+        }
+    }
+    return $sanitized_input;
+}
+
+function nara_data_integration_section_main_callback() {
+    echo '<p>Configure the settings for the NARA Data Integration plugin. Ensure the Google Sheet is published to the web as a CSV file.</p>';
+    echo '<p><strong>Instructions for Google Sheets:</strong></p>';
+    echo '<ol>';
+    echo '<li>Open your Google Sheet.</li>';
+    echo '<li>Go to "File" > "Share" > "Publish to web".</li>';
+    echo '<li>In the "Link" tab, select the specific sheet you want to publish.</li>';
+    echo '<li>Choose "Comma-separated values (.csv)" as the format.</li>';
+    echo '<li>Click "Publish".</li>';
+    echo '<li>Copy the generated URL and paste it into the field below.</li>';
+    echo '</ol>';
+}
+
+function nara_data_integration_google_sheet_url_render() {
+    $options = get_option('nara_data_integration_settings');
+    $url = isset($options['google_sheet_url']) ? $options['google_sheet_url'] : '';
+    ?>
+    <input type='text' name='nara_data_integration_settings[google_sheet_url]' value='<?php echo esc_attr($url); ?>' class='regular-text'>
+    <p class="description">Enter the full URL of the Google Sheet published as a CSV file.</p>
+    <?php
+}
+
+function nara_data_integration_settings_page() {
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+    ?>
+    <div class="wrap">
+        <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+        <form action="options.php" method="post">
+            <?php
+            settings_fields('nara_data_integration_settings_group');
+            do_settings_sections('nara-data-integration');
+            submit_button('Save Settings');
+            ?>
+        </form>
+    </div>
+    <?php
+}
 ?>

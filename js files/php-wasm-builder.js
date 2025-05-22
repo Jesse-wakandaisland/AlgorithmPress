@@ -1,6 +1,8 @@
 /**
  * PHP-WASM Builder - Main Initialization Script
  * This script brings together all the modules and initializes the builder system
+ * 
+ * Depends on: error-handling.js (for AP.handleError and AP.showToast)
  */
 
 // Main application
@@ -51,7 +53,11 @@ const PHPWasmBuilder = (function() {
         updateStatus('PHP-WASM', 'ready');
       })
       .catch(error => {
-        console.error('Failed to initialize PHP-WASM:', error);
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Failed to initialize PHP-WASM');
+        } else {
+          console.error('Failed to initialize PHP-WASM:', error);
+        }
         updateStatus('PHP-WASM', 'error', error);
       });
     
@@ -62,7 +68,11 @@ const PHPWasmBuilder = (function() {
         updateStatus('Storage', 'ready');
       })
       .catch(error => {
-        console.error('Failed to initialize storage:', error);
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Failed to initialize storage');
+        } else {
+          console.error('Failed to initialize storage:', error);
+        }
         updateStatus('Storage', 'error', error);
       });
     
@@ -193,6 +203,14 @@ const PHPWasmBuilder = (function() {
         console.error('Failed to initialize Cubbit storage:', error);
         // Fall back to local storage
         setStoragePreference('localStorage');
+        // AP.handleError might have been called by CubbitStorage.initialize,
+        // but we can provide a fallback or more specific message here if needed.
+        if (!(window.AP && window.AP.handleError)) { // If Cubbit did not show an error
+             console.error('Failed to initialize Cubbit storage, falling back to local storage:', error);
+        }
+        if (window.AP && window.AP.showToast) {
+            window.AP.showToast('Failed to initialize Cubbit storage, using local storage instead.', 'warning');
+        }
         return Promise.resolve();
       });
     } else {
@@ -224,7 +242,7 @@ const PHPWasmBuilder = (function() {
     }
     
     // Show/hide Cubbit settings
-    if (elements.cubbitSettings) {
+    if (elements.cubbitSettings) { // Corrected from elements.cubSettings
       elements.cubbitSettings.style.display = preference === 'cubbitDS3' ? 'block' : 'none';
     }
   }
@@ -241,7 +259,11 @@ const PHPWasmBuilder = (function() {
       const bucketName = elements.cubbitBucket.value || 'php-wasm-projects';
       
       if (!apiKey) {
-        showToast('error', 'Cubbit API key is required');
+        if (window.AP && window.AP.showToast) {
+          window.AP.showToast('Cubbit API key is required', 'error');
+        } else {
+          alert('Cubbit API key is required');
+        }
         return;
       }
       
@@ -251,13 +273,26 @@ const PHPWasmBuilder = (function() {
       // Reinitialize storage
       initStorage()
         .then(() => {
-          showToast('success', 'Cubbit storage configured successfully');
+          if (window.AP && window.AP.showToast) {
+            window.AP.showToast('Cubbit storage configured successfully', 'success');
+          } else {
+            alert('Cubbit storage configured successfully');
+          }
         })
         .catch(error => {
-          showToast('error', 'Failed to configure Cubbit storage: ' + error.message);
+          // initStorage should call AP.handleError for the actual error
+          if (window.AP && window.AP.showToast) { // Just show a user friendly message
+            window.AP.showToast('Failed to configure Cubbit storage. Check settings.', 'error');
+          } else {
+            alert('Failed to configure Cubbit storage: ' + error.message);
+          }
         });
     } else {
-      showToast('info', 'Local storage is active');
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast('Local storage is active', 'info');
+      } else {
+        alert('Local storage is active');
+      }
     }
   }
   
@@ -400,7 +435,11 @@ const PHPWasmBuilder = (function() {
           addComponent(parsedData.id);
         }
       } catch (error) {
-        console.error('Failed to parse drop data:', error);
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Failed to process dropped component data');
+        } else {
+          console.error('Failed to parse drop data:', error);
+        }
       }
     });
   }
@@ -559,7 +598,11 @@ const PHPWasmBuilder = (function() {
     saveCurrentProject();
     
     // Show toast
-    showToast('success', 'New project created: ' + projectName);
+    if (window.AP && window.AP.showToast) {
+      window.AP.showToast('New project created: ' + projectName, 'success');
+    } else {
+      alert('New project created: ' + projectName);
+    }
   }
   
   /**
@@ -567,7 +610,11 @@ const PHPWasmBuilder = (function() {
    */
   function saveCurrentProject() {
     if (!state.currentProject) {
-      showToast('error', 'No active project to save');
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast('No active project to save', 'error');
+      } else {
+        alert('No active project to save');
+      }
       return;
     }
     
@@ -595,21 +642,41 @@ const PHPWasmBuilder = (function() {
         .then(() => {
           // Save reference to local storage
           saveProjectReference(state.currentProject);
-          showToast('success', 'Project saved to Cubbit DS3');
+          if (window.AP && window.AP.showToast) {
+            window.AP.showToast('Project saved to Cubbit DS3', 'success');
+          } else {
+            alert('Project saved to Cubbit DS3');
+          }
         })
         .catch(error => {
-          console.error('Failed to save project to Cubbit:', error);
-          showToast('error', 'Failed to save project: ' + error.message);
+          // CubbitStorage.saveProject should call AP.handleError
+          if (!(window.AP && window.AP.handleError)) {
+            console.error('Failed to save project to Cubbit:', error);
+          }
+          if (window.AP && window.AP.showToast) { // User friendly message
+            window.AP.showToast('Failed to save project to Cubbit. Check connection/settings.', 'error');
+          } else {
+            alert('Failed to save project: ' + error.message);
+          }
         });
     } else {
       // Save to local storage
       try {
         localStorage.setItem('project_' + state.currentProject.id, JSON.stringify(state.currentProject));
         saveProjectReference(state.currentProject);
-        showToast('success', 'Project saved');
+        if (window.AP && window.AP.showToast) {
+          window.AP.showToast('Project saved to local storage', 'success');
+        } else {
+          alert('Project saved');
+        }
       } catch (error) {
-        console.error('Failed to save project to local storage:', error);
-        showToast('error', 'Failed to save project: ' + error.message);
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Failed to save project to local storage');
+        } else {
+          console.error('Failed to save project to local storage:', error);
+        }
+        // No separate showToast here as AP.handleError would have shown one.
+        // If AP.handleError is not available, the console.error is the fallback.
       }
     }
   }
@@ -649,7 +716,8 @@ const PHPWasmBuilder = (function() {
       // Save updated list
       localStorage.setItem('project_list', JSON.stringify(projectList));
     } catch (error) {
-      console.error('Failed to save project reference:', error);
+      // This is a non-critical error, console log is fine, no need for user-facing toast.
+      console.error('Failed to save project reference to local list:', error);
     }
   }
   
@@ -670,16 +738,26 @@ const PHPWasmBuilder = (function() {
         if (project) {
           state.currentProject = project;
           updateProjectUI();
-          showToast('info', 'Project loaded: ' + project.name);
+          if (window.AP && window.AP.showToast) {
+            window.AP.showToast('Project loaded: ' + project.name, 'info');
+          } else {
+            alert('Project loaded: ' + project.name);
+          }
         } else {
           // Project not found, create a new one
+          if (window.AP && window.AP.showToast) {
+            window.AP.showToast(`Project with ID ${lastProjectId} not found. Creating a new one.`, 'warning');
+          }
           createNewProject();
         }
       })
       .catch(error => {
-        console.error('Failed to load last project:', error);
-        showToast('error', 'Failed to load last project: ' + error.message);
-        createNewProject();
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Failed to load last project');
+        } else {
+          console.error('Failed to load last project:', error);
+        }
+        createNewProject(); // Create a new project as a fallback
       });
   }
   
@@ -721,7 +799,16 @@ const PHPWasmBuilder = (function() {
             state.currentProject = loadedProject;
             updateProjectUI();
             modals.openProject.hide();
-            showToast('info', 'Project loaded: ' + loadedProject.name);
+            if (window.AP && window.AP.showToast) {
+              window.AP.showToast('Project loaded: ' + loadedProject.name, 'info');
+            } else {
+              alert('Project loaded: ' + loadedProject.name);
+            }
+            if (window.AP && window.AP.showToast) {
+              window.AP.showToast('Project loaded: ' + loadedProject.name, 'info');
+            } else {
+              alert('Project loaded: ' + loadedProject.name);
+            }
           }
         });
       });
@@ -760,7 +847,11 @@ const PHPWasmBuilder = (function() {
                 state.currentProject = loadedProject;
                 updateProjectUI();
                 modals.openProject.hide();
-                showToast('info', 'Project loaded: ' + loadedProject.name);
+                if (window.AP && window.AP.showToast) {
+                  window.AP.showToast('Project loaded: ' + loadedProject.name, 'info');
+                } else {
+                  alert('Project loaded: ' + loadedProject.name);
+                }
               }
             });
           });
@@ -768,8 +859,15 @@ const PHPWasmBuilder = (function() {
           elements.projectsList.appendChild(projectEl);
         });
       }).catch(error => {
-        console.error('Failed to list Cubbit projects:', error);
-        return Promise.resolve();
+        // CubbitStorage.listProjects should call AP.handleError
+        if (!(window.AP && window.AP.handleError)) {
+            console.error('Failed to list Cubbit projects:', error);
+        }
+        // Optionally show a toast that listing from Cubbit failed
+        if (window.AP && window.AP.showToast) {
+            window.AP.showToast('Could not load project list from Cubbit. Displaying local projects only.', 'warning');
+        }
+        return Promise.resolve(); // Resolve so local projects still show
       });
     }
     
@@ -784,7 +882,13 @@ const PHPWasmBuilder = (function() {
     
     if (storageMethod === 'cubbitDS3' && CubbitStorage.isInitialized()) {
       return CubbitStorage.loadProject(projectId).catch(error => {
-        console.error('Failed to load project from Cubbit:', error);
+        // CubbitStorage.loadProject should call AP.handleError
+        if (!(window.AP && window.AP.handleError)) {
+          console.error('Failed to load project from Cubbit:', error);
+        }
+        if (window.AP && window.AP.showToast) {
+            window.AP.showToast(`Failed to load project from Cubbit. Attempting local fallback. Error: ${error.message}`, 'warning');
+        }
         // Try to load from local storage as fallback
         return loadProjectFromLocalStorage(projectId);
       });
@@ -810,14 +914,22 @@ const PHPWasmBuilder = (function() {
     try {
       const projectJson = localStorage.getItem('project_' + projectId);
       if (!projectJson) {
-        console.warn('Project not found in local storage:', projectId);
+        if (window.AP && window.AP.showToast) {
+            window.AP.showToast(`Project ${projectId} not found in local storage.`, 'warning');
+        } else {
+            console.warn('Project not found in local storage:', projectId);
+        }
         return Promise.resolve(null);
       }
       
       return Promise.resolve(JSON.parse(projectJson));
     } catch (error) {
-      console.error('Failed to load project from local storage:', error);
-      return Promise.reject(error);
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, `Failed to load project ${projectId} from local storage`);
+      } else {
+        console.error('Failed to load project from local storage:', error);
+      }
+      return Promise.reject(error); // Keep rejecting as this is an unexpected error
     }
   }
   
@@ -965,13 +1077,21 @@ const PHPWasmBuilder = (function() {
    */
   function addComponent(componentId) {
     if (!state.currentProject) {
-      showToast('error', 'No active project');
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast('No active project. Create or open a project first.', 'error');
+      } else {
+        alert('No active project');
+      }
       return;
     }
     
     const componentTemplate = availableComponents.find(c => c.id === componentId);
     if (!componentTemplate) {
-      console.error('Component not found:', componentId);
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(new Error(`Component template with ID ${componentId} not found.`), 'Add Component Error');
+      } else {
+        console.error('Component not found:', componentId);
+      }
       return;
     }
     
@@ -1263,11 +1383,22 @@ const PHPWasmBuilder = (function() {
    */
   function showPreview() {
     if (!state.currentProject) {
-      showToast('error', 'No active project to preview');
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast('No active project to preview', 'error');
+      } else {
+        alert('No active project to preview');
+      }
       return;
     }
     
-    if (!elements.previewFrame) return;
+    if (!elements.previewFrame) {
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(new Error("Preview frame element not found in DOM."), "Preview Error");
+        } else {
+            console.error("Preview frame element not found.");
+        }
+        return;
+    }
     
     // Generate HTML
     const html = generateProjectHtml();
@@ -1383,7 +1514,11 @@ const PHPWasmBuilder = (function() {
    */
   function exportProject() {
     if (!state.currentProject) {
-      showToast('error', 'No active project to export');
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast('No active project to export', 'error');
+      } else {
+        alert('No active project to export');
+      }
       return;
     }
     
@@ -1400,7 +1535,11 @@ const PHPWasmBuilder = (function() {
         exportWordPressPlugin();
         break;
       default:
-        showToast('info', 'Export cancelled');
+        if (window.AP && window.AP.showToast) {
+          window.AP.showToast('Export cancelled or invalid format selected.', 'info');
+        } else {
+          alert('Export cancelled');
+        }
     }
   }
   
@@ -1424,7 +1563,11 @@ const PHPWasmBuilder = (function() {
     
     URL.revokeObjectURL(url);
     
-    showToast('success', 'Project exported as standalone HTML');
+    if (window.AP && window.AP.showToast) {
+      window.AP.showToast('Project exported as standalone HTML', 'success');
+    } else {
+      alert('Project exported as standalone HTML');
+    }
   }
   
   /**
@@ -1433,8 +1576,11 @@ const PHPWasmBuilder = (function() {
   function exportPhpFiles() {
     // Create a zip file containing all project files
     // Would require a zip library like JSZip
-    
-    showToast('info', 'PHP files export coming soon');
+    if (window.AP && window.AP.showToast) {
+      window.AP.showToast('PHP files export coming soon. This feature is not yet implemented.', 'info');
+    } else {
+      alert('PHP files export coming soon');
+    }
   }
   
   /**
@@ -1443,63 +1589,30 @@ const PHPWasmBuilder = (function() {
   function exportWordPressPlugin() {
     // Create a WordPress plugin based on the project
     // Would require a zip library like JSZip
-    
-    showToast('info', 'WordPress plugin export coming soon');
+    if (window.AP && window.AP.showToast) {
+      window.AP.showToast('WordPress plugin export coming soon. This feature is not yet implemented.', 'info');
+    } else {
+      alert('WordPress plugin export coming soon');
+    }
   }
   
   /**
    * Update status display
    */
   function updateStatus(component, status, error = null) {
-    console.log(`${component} status: ${status}`);
-    
-    // TODO: Implement status display in UI
+    // This function is mostly for console logging now, UI status might be handled by toasts.
+    console.log(`Status Update: Component: ${component}, Status: ${status}`);
+    if (error) {
+      console.log(`Associated error:`, error);
+    }
+    // TODO: If there's a dedicated UI status area, update it here.
+    // For now, AP.handleError and AP.showToast will provide user feedback.
   }
   
-  /**
-   * Show a toast notification
-   */
-  function showToast(type, message) {
-    // Create toast element
-    const toastEl = document.createElement('div');
-    toastEl.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0`;
-    toastEl.setAttribute('role', 'alert');
-    toastEl.setAttribute('aria-live', 'assertive');
-    toastEl.setAttribute('aria-atomic', 'true');
-    
-    toastEl.innerHTML = `
-      <div class="d-flex">
-        <div class="toast-body">
-          ${escapeHtml(message)}
-        </div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-      </div>
-    `;
-    
-    // Add to document
-    const toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-      // Create toast container
-      const container = document.createElement('div');
-      container.id = 'toast-container';
-      container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-      document.body.appendChild(container);
-      container.appendChild(toastEl);
-    } else {
-      toastContainer.appendChild(toastEl);
-    }
-    
-    // Initialize and show toast
-    const toast = new bootstrap.Toast(toastEl, {
-      delay: 5000
-    });
-    toast.show();
-    
-    // Remove after hiding
-    toastEl.addEventListener('hidden.bs.toast', () => {
-      toastEl.remove();
-    });
-  }
+  // Local showToast function is removed. Use window.AP.showToast or window.showToast.
+  // Ensure the toast container div with id="toast-container" exists in the main HTML file,
+  // or that the error-handling.js script creates it.
+  // For this integration, we assume error-handling.js manages the toast container.
   
   /**
    * Helper function to escape HTML

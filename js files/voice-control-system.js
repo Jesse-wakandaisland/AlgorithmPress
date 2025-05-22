@@ -2,6 +2,8 @@
  * AlgorithmPress PHP-WASM Builder - Voice Control System
  * 
  * Provides voice command recognition and execution for the PHP-WASM Builder interface
+ * 
+ * Depends on: error-handling.js (for AP.handleError and AP.showToast)
  */
 
 const VoiceControlSystem = (function() {
@@ -92,7 +94,11 @@ const VoiceControlSystem = (function() {
         // Check for browser support
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
           const error = new Error('Speech recognition not supported in this browser');
-          showFeedback('error', 'Speech recognition not supported in this browser');
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'Voice Control Initialization');
+          } else {
+            showFeedback('error', 'Speech recognition not supported in this browser'); // Fallback
+          }
           reject(error);
           return;
         }
@@ -142,7 +148,12 @@ const VoiceControlSystem = (function() {
         
         resolve();
       } catch (error) {
-        console.error('Failed to initialize voice control system:', error);
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Failed to initialize voice control system');
+        } else {
+          console.error('Failed to initialize voice control system:', error);
+          showFeedback('error', `Initialization failed: ${error.message}`); // Fallback
+        }
         reject(error);
       }
     });
@@ -154,16 +165,27 @@ const VoiceControlSystem = (function() {
   function setupRecognitionEvents() {
     recognition.onstart = function() {
       isListening = true;
-      showFeedback('info', 'Voice recognition started');
+      showFeedback('info', 'Voice recognition started'); // Keep for non-error feedback
     };
     
     recognition.onend = function() {
       isListening = false;
-      showFeedback('info', 'Voice recognition ended');
+      showFeedback('info', 'Voice recognition ended'); // Keep for non-error feedback
     };
     
     recognition.onerror = function(event) {
-      showFeedback('error', 'Error: ' + event.error);
+      const errorMessage = `Speech recognition error: ${event.error}`;
+      if (window.AP && window.AP.handleError) {
+        // Avoid showing a toast for common non-fatal errors like 'no-speech' or 'audio-capture'
+        if (event.error !== 'no-speech' && event.error !== 'audio-capture' && event.error !== 'network') {
+          window.AP.handleError(new Error(errorMessage), 'Voice Recognition Error');
+        } else {
+          console.warn(errorMessage); // Log less critical errors
+          showFeedback('warning', `Recognition issue: ${event.error}`); // Use local feedback for these
+        }
+      } else {
+        showFeedback('error', 'Error: ' + event.error); // Fallback
+      }
       
       // Restart if error is not fatal
       if (event.error !== 'aborted' && event.error !== 'no-speech' && isListening) {
@@ -261,28 +283,33 @@ const VoiceControlSystem = (function() {
     const statusIndicator = visualFeedbackElement.querySelector('.voice-status-indicator');
     const feedbackText = visualFeedbackElement.querySelector('.voice-feedback-text');
     
+    // If AP.handleError is used for errors, this function might not be called for 'error' type.
+    // However, if it is (e.g. as a fallback), we can still style it.
+    if (type === 'error') {
+        if (window.AP && window.AP.handleError && message) {
+            // If AP.handleError is available, it would typically be called directly.
+            // This path is more of a fallback if showFeedback('error', msg) was called.
+            // To avoid double toasts, we might only log here or rely on AP.handleError to be called first.
+            console.error("VoiceControlSystem showFeedback (error):", message); // Log it, AP.handleError should show the toast
+        } else if (message) {
+            // Fallback if AP.handleError is not available
+            if (feedbackText) feedbackText.textContent = message;
+            if (statusIndicator) statusIndicator.style.backgroundColor = '#e74c3c';
+        }
+    } else if (feedbackText && statusIndicator) {
+        // Handle info, warning, success types for local visual feedback
+        feedbackText.textContent = message;
+        let color = '#ccc';
+        switch (type) {
+            case 'info': color = '#3498db'; break;
+            case 'warning': color = '#f39c12'; break;
+            case 'success': color = '#2ecc71'; break;
+        }
+        statusIndicator.style.backgroundColor = color;
+    }
+
     if (statusIndicator) {
-      // Set indicator color based on type
-      let color = '#ccc';
-      
-      switch (type) {
-        case 'info':
-          color = '#3498db';
-          break;
-        case 'warning':
-          color = '#f39c12';
-          break;
-        case 'error':
-          color = '#e74c3c';
-          break;
-        case 'success':
-          color = '#2ecc71';
-          break;
-      }
-      
-      statusIndicator.style.backgroundColor = color;
-      
-      // Pulse animation for activity
+       // Pulse animation for activity
       statusIndicator.style.animation = 'none';
       setTimeout(() => {
         statusIndicator.style.animation = 'pulse 1s infinite';
@@ -358,10 +385,14 @@ const VoiceControlSystem = (function() {
         // Execute the command
         commandResult.execute();
       } catch (error) {
-        showFeedback('error', `Error executing command: ${error.message}`);
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, `Error executing voice command: ${commandResult.command}`);
+        } else {
+          showFeedback('error', `Error executing command: ${error.message}`); // Fallback
+        }
       }
     } else {
-      showFeedback('warning', 'Command not recognized');
+      showFeedback('warning', 'Command not recognized'); // Keep for non-error feedback
       provideVoiceFeedback('Command not recognized. Try saying "show commands" for help.');
     }
   }
@@ -371,21 +402,30 @@ const VoiceControlSystem = (function() {
    */
   function startListening() {
     if (!isInitialized) {
-      showFeedback('error', 'Voice control system not initialized');
+      const msg = 'Voice control system not initialized';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
       return;
     }
     
     if (isListening) {
-      showFeedback('info', 'Already listening');
+      showFeedback('info', 'Already listening'); // Keep for non-error feedback
       return;
     }
     
     try {
       recognition.start();
-      showFeedback('success', 'Voice recognition started');
+      showFeedback('success', 'Voice recognition started'); // Keep for non-error feedback
       provideVoiceFeedback('Voice control activated');
     } catch (error) {
-      showFeedback('error', `Failed to start voice recognition: ${error.message}`);
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'Failed to start voice recognition');
+      } else {
+        showFeedback('error', `Failed to start voice recognition: ${error.message}`); // Fallback
+      }
     }
   }
   
@@ -402,7 +442,11 @@ const VoiceControlSystem = (function() {
       showFeedback('info', 'Voice recognition stopped');
       provideVoiceFeedback('Voice control deactivated');
     } catch (error) {
-      showFeedback('error', `Failed to stop voice recognition: ${error.message}`);
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'Failed to stop voice recognition');
+      } else {
+        showFeedback('error', `Failed to stop voice recognition: ${error.message}`); // Fallback
+      }
     }
   }
   
@@ -419,7 +463,11 @@ const VoiceControlSystem = (function() {
       showFeedback('info', 'Voice recognition paused');
       provideVoiceFeedback('Voice control paused');
     } catch (error) {
-      showFeedback('error', `Failed to pause voice recognition: ${error.message}`);
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'Failed to pause voice recognition');
+      } else {
+        showFeedback('error', `Failed to pause voice recognition: ${error.message}`); // Fallback
+      }
     }
   }
   
@@ -428,16 +476,25 @@ const VoiceControlSystem = (function() {
    */
   function resumeListening() {
     if (!isInitialized) {
-      showFeedback('error', 'Voice control system not initialized');
+      const msg = 'Voice control system not initialized';
+       if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
       return;
     }
     
     try {
       recognition.start();
-      showFeedback('success', 'Voice recognition resumed');
+      showFeedback('success', 'Voice recognition resumed'); // Keep for non-error feedback
       provideVoiceFeedback('Voice control resumed');
     } catch (error) {
-      showFeedback('error', `Failed to resume voice recognition: ${error.message}`);
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'Failed to resume voice recognition');
+      } else {
+        showFeedback('error', `Failed to resume voice recognition: ${error.message}`); // Fallback
+      }
     }
   }
   
@@ -449,9 +506,14 @@ const VoiceControlSystem = (function() {
     const tab = document.querySelector(`.sidebar-tab[data-tab="${tabId}"]`);
     if (tab) {
       tab.click();
-      showFeedback('success', `Navigated to ${tabId.replace('-tab', '')}`);
+      showFeedback('success', `Navigated to ${tabId.replace('-tab', '')}`); // Keep for non-error feedback
     } else {
-      showFeedback('error', `Tab ${tabId} not found`);
+      const msg = `Tab ${tabId} not found`;
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -462,9 +524,14 @@ const VoiceControlSystem = (function() {
     const previewBtn = document.getElementById('preview-btn');
     if (previewBtn) {
       previewBtn.click();
-      showFeedback('success', 'Showing preview');
+      showFeedback('success', 'Showing preview'); // Keep for non-error feedback
     } else {
-      showFeedback('error', 'Preview button not found');
+      const msg = 'Preview button not found';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -475,9 +542,14 @@ const VoiceControlSystem = (function() {
     const newProjectBtn = document.getElementById('new-project-btn');
     if (newProjectBtn) {
       newProjectBtn.click();
-      showFeedback('success', 'Creating new project');
+      showFeedback('success', 'Creating new project'); // Keep for non-error feedback
     } else {
-      showFeedback('error', 'New project button not found');
+      const msg = 'New project button not found';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -488,9 +560,14 @@ const VoiceControlSystem = (function() {
     const openProjectBtn = document.getElementById('open-project-btn');
     if (openProjectBtn) {
       openProjectBtn.click();
-      showFeedback('success', 'Opening project dialog');
+      showFeedback('success', 'Opening project dialog'); // Keep for non-error feedback
     } else {
-      showFeedback('error', 'Open project button not found');
+      const msg = 'Open project button not found';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -501,9 +578,14 @@ const VoiceControlSystem = (function() {
     const saveProjectBtn = document.getElementById('save-project-btn');
     if (saveProjectBtn) {
       saveProjectBtn.click();
-      showFeedback('success', 'Saving project');
+      showFeedback('success', 'Saving project'); // Keep for non-error feedback
     } else {
-      showFeedback('error', 'Save project button not found');
+      const msg = 'Save project button not found';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -514,9 +596,14 @@ const VoiceControlSystem = (function() {
     const exportProjectBtn = document.getElementById('export-project-btn');
     if (exportProjectBtn) {
       exportProjectBtn.click();
-      showFeedback('success', 'Exporting project');
+      showFeedback('success', 'Exporting project'); // Keep for non-error feedback
     } else {
-      showFeedback('error', 'Export project button not found');
+      const msg = 'Export project button not found';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -526,7 +613,7 @@ const VoiceControlSystem = (function() {
    */
   function exportAsFormat(format) {
     // This would need to be integrated with the export system
-    showFeedback('info', `Exporting as ${format} format`);
+    showFeedback('info', `Exporting as ${format} format`); // Keep for non-error feedback
     
     // For now, just open the export dialog
     exportProject();
@@ -557,9 +644,14 @@ const VoiceControlSystem = (function() {
         // Add component to canvas
         if (window.PHPWasmBuilder && window.PHPWasmBuilder.addComponent) {
           window.PHPWasmBuilder.addComponent(componentId);
-          showFeedback('success', `Added component: ${componentName}`);
+          showFeedback('success', `Added component: ${componentName}`); // Keep for non-error feedback
         } else {
-          showFeedback('error', 'PHPWasmBuilder not available');
+          const msg = 'PHPWasmBuilder not available to add component';
+          if (window.AP && window.AP.showToast) {
+            window.AP.showToast(msg, 'error');
+          } else {
+            showFeedback('error', msg); // Fallback
+          }
         }
         
         break;
@@ -567,13 +659,18 @@ const VoiceControlSystem = (function() {
     }
     
     if (!componentFound) {
-      showFeedback('error', `Component "${name}" not found`);
+      const msg = `Component "${name}" not found`;
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'warning'); // Use warning as it's a recognition issue
+      } else {
+        showFeedback('error', msg); // Fallback, though 'error' might be too strong
+      }
       
       // Suggest similar components
       const suggestions = findSimilarComponents(name);
       if (suggestions.length > 0) {
         const suggestionText = `Did you mean: ${suggestions.join(', ')}?`;
-        showFeedback('info', suggestionText);
+        showFeedback('info', suggestionText); // Keep for non-error feedback
         provideVoiceFeedback(suggestionText);
       }
     }
@@ -655,7 +752,12 @@ const VoiceControlSystem = (function() {
     const componentEls = document.querySelectorAll('.builder-component');
     
     if (index <= 0 || index > componentEls.length) {
-      showFeedback('error', `Invalid component number. There are ${componentEls.length} components.`);
+      const msg = `Invalid component number. There are ${componentEls.length} components.`;
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
       return;
     }
     
@@ -664,9 +766,14 @@ const VoiceControlSystem = (function() {
     
     if (componentEl) {
       componentEl.click();
-      showFeedback('success', `Selected component ${index}`);
+      showFeedback('success', `Selected component ${index}`); // Keep for non-error feedback
     } else {
-      showFeedback('error', `Component ${index} not found`);
+      const msg = `Component ${index} not found`;
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -677,7 +784,12 @@ const VoiceControlSystem = (function() {
     const selectedComponent = document.querySelector('.builder-component.selected');
     
     if (!selectedComponent) {
-      showFeedback('error', 'No component selected');
+      const msg = 'No component selected to delete';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'warning');
+      } else {
+        showFeedback('error', msg); // Fallback, though 'error' might be too strong
+      }
       return;
     }
     
@@ -686,9 +798,14 @@ const VoiceControlSystem = (function() {
     
     if (deleteBtn) {
       deleteBtn.click();
-      showFeedback('success', 'Component deleted');
+      showFeedback('success', 'Component deleted'); // Keep for non-error feedback
     } else {
-      showFeedback('error', 'Delete button not found');
+      const msg = 'Delete button not found for selected component';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -700,7 +817,12 @@ const VoiceControlSystem = (function() {
     const componentEls = document.querySelectorAll('.builder-component');
     
     if (index <= 0 || index > componentEls.length) {
-      showFeedback('error', `Invalid component number. There are ${componentEls.length} components.`);
+      const msg = `Invalid component number to delete. There are ${componentEls.length} components.`;
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
       return;
     }
     
@@ -712,12 +834,22 @@ const VoiceControlSystem = (function() {
       
       if (deleteBtn) {
         deleteBtn.click();
-        showFeedback('success', `Deleted component ${index}`);
+        showFeedback('success', `Deleted component ${index}`); // Keep for non-error feedback
       } else {
-        showFeedback('error', 'Delete button not found');
+        const msg = `Delete button not found for component ${index}`;
+        if (window.AP && window.AP.showToast) {
+          window.AP.showToast(msg, 'error');
+        } else {
+          showFeedback('error', msg); // Fallback
+        }
       }
     } else {
-      showFeedback('error', `Component ${index} not found`);
+      const msg = `Component ${index} not found to delete`;
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -728,7 +860,12 @@ const VoiceControlSystem = (function() {
     const selectedComponent = document.querySelector('.builder-component.selected');
     
     if (!selectedComponent) {
-      showFeedback('error', 'No component selected');
+      const msg = 'No component selected to move up';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'warning');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
       return;
     }
     
@@ -737,9 +874,14 @@ const VoiceControlSystem = (function() {
     
     if (moveUpBtn) {
       moveUpBtn.click();
-      showFeedback('success', 'Component moved up');
+      showFeedback('success', 'Component moved up'); // Keep for non-error feedback
     } else {
-      showFeedback('error', 'Move up button not found');
+      const msg = 'Move up button not found for selected component';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -750,7 +892,12 @@ const VoiceControlSystem = (function() {
     const selectedComponent = document.querySelector('.builder-component.selected');
     
     if (!selectedComponent) {
-      showFeedback('error', 'No component selected');
+      const msg = 'No component selected to move down';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'warning');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
       return;
     }
     
@@ -759,9 +906,14 @@ const VoiceControlSystem = (function() {
     
     if (moveDownBtn) {
       moveDownBtn.click();
-      showFeedback('success', 'Component moved down');
+      showFeedback('success', 'Component moved down'); // Keep for non-error feedback
     } else {
-      showFeedback('error', 'Move down button not found');
+      const msg = 'Move down button not found for selected component';
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -792,13 +944,18 @@ const VoiceControlSystem = (function() {
         const event = new Event('change', { bubbles: true });
         input.dispatchEvent(event);
         
-        showFeedback('success', `Set property "${propertyName}" to "${value}"`);
+        showFeedback('success', `Set property "${propertyName}" to "${value}"`); // Keep for non-error feedback
         break;
       }
     }
     
     if (!propertyFound) {
-      showFeedback('error', `Property "${name}" not found`);
+      const msg = `Property "${name}" not found`;
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -811,9 +968,14 @@ const VoiceControlSystem = (function() {
     
     if (tab) {
       tab.click();
-      showFeedback('success', `Switched to ${tabName} tab`);
+      showFeedback('success', `Switched to ${tabName} tab`); // Keep for non-error feedback
     } else {
-      showFeedback('error', `Tab ${tabName} not found`);
+      const msg = `Tab ${tabName} not found`;
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -830,9 +992,14 @@ const VoiceControlSystem = (function() {
     
     if (editorEl) {
       editorEl.focus();
-      showFeedback('success', `Focused ${editor} editor`);
+      showFeedback('success', `Focused ${editor} editor`); // Keep for non-error feedback
     } else {
-      showFeedback('error', `${editor} editor not found`);
+      const msg = `${editor} editor not found`;
+      if (window.AP && window.AP.showToast) {
+        window.AP.showToast(msg, 'error');
+      } else {
+        showFeedback('error', msg); // Fallback
+      }
     }
   }
   
@@ -977,14 +1144,19 @@ const VoiceControlSystem = (function() {
     if (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT') {
       // If focus is in a form field, use browser's undo
       document.execCommand('undo');
-      showFeedback('success', 'Undo in form field');
+      showFeedback('success', 'Undo in form field'); // Keep for non-error feedback
     } else {
       // Otherwise, use application undo if available
       if (window.PHPWasmBuilder && window.PHPWasmBuilder.undo) {
         window.PHPWasmBuilder.undo();
-        showFeedback('success', 'Undo');
+        showFeedback('success', 'Undo'); // Keep for non-error feedback
       } else {
-        showFeedback('error', 'Undo not available');
+        const msg = 'Undo not available in current context';
+        if (window.AP && window.AP.showToast) {
+          window.AP.showToast(msg, 'info');
+        } else {
+          showFeedback('error', msg); // Fallback, though 'error' might be too strong
+        }
       }
     }
   }
@@ -996,14 +1168,19 @@ const VoiceControlSystem = (function() {
     if (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT') {
       // If focus is in a form field, use browser's redo
       document.execCommand('redo');
-      showFeedback('success', 'Redo in form field');
+      showFeedback('success', 'Redo in form field'); // Keep for non-error feedback
     } else {
       // Otherwise, use application redo if available
       if (window.PHPWasmBuilder && window.PHPWasmBuilder.redo) {
         window.PHPWasmBuilder.redo();
-        showFeedback('success', 'Redo');
+        showFeedback('success', 'Redo'); // Keep for non-error feedback
       } else {
-        showFeedback('error', 'Redo not available');
+        const msg = 'Redo not available in current context';
+        if (window.AP && window.AP.showToast) {
+          window.AP.showToast(msg, 'info');
+        } else {
+          showFeedback('error', msg); // Fallback, though 'error' might be too strong
+        }
       }
     }
   }
@@ -1467,6 +1644,10 @@ document.addEventListener('DOMContentLoaded', () => {
     voiceFeedback: true,
     visualFeedbackElement: 'voice-feedback'
   }).catch(error => {
-    console.error('Failed to initialize voice control:', error);
+    if (window.AP && window.AP.handleError) {
+      window.AP.handleError(error, 'Failed to initialize voice control system on DOMContentLoaded');
+    } else {
+      console.error('Failed to initialize voice control:', error);
+    }
   });
 });

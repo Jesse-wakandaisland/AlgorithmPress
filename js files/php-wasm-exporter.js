@@ -1,6 +1,8 @@
 /**
  * AlgorithmPress PHP-WASM Export and Deployment Module
  * Handles exporting projects to different formats and deploying to various platforms
+ * 
+ * Depends on: error-handling.js (for AP.handleError and AP.showToast)
  */
 
 const PHPWasmExporter = (function() {
@@ -40,7 +42,11 @@ const PHPWasmExporter = (function() {
             resolve();
           })
           .catch(error => {
-            console.error('Failed to load JSZip:', error);
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, 'Failed to load JSZip library');
+            } else {
+              console.error('Failed to load JSZip:', error);
+            }
             reject(error);
           });
       } else {
@@ -79,7 +85,13 @@ const PHPWasmExporter = (function() {
    */
   function exportProject(project, format, options = {}) {
     if (!project) {
-      return Promise.reject(new Error('No project to export'));
+      const error = new Error('No project to export');
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'Export Project Error');
+      } else {
+        console.error(error.message);
+      }
+      return Promise.reject(error);
     }
     
     switch (format) {
@@ -94,7 +106,13 @@ const PHPWasmExporter = (function() {
       case EXPORT_FORMATS.DOCKER_CONTAINER:
         return exportDockerContainer(project, options);
       default:
-        return Promise.reject(new Error('Unknown export format: ' + format));
+        const error = new Error('Unknown export format: ' + format);
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Export Project Error');
+        } else {
+          console.error(error.message);
+        }
+        return Promise.reject(error);
     }
   }
   
@@ -115,6 +133,11 @@ const PHPWasmExporter = (function() {
         
         resolve(blob);
       } catch (error) {
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Failed to generate standalone HTML for export');
+        } else {
+          console.error('Error in exportStandaloneHtml:', error);
+        }
         reject(error);
       }
     });
@@ -212,7 +235,13 @@ const PHPWasmExporter = (function() {
   function exportPhpFiles(project, options = {}) {
     return new Promise((resolve, reject) => {
       if (!JSZip) {
-        reject(new Error('JSZip is not loaded'));
+        const error = new Error('JSZip is not loaded. Cannot export PHP files.');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Export PHP Files Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -272,9 +301,19 @@ const PHPWasmExporter = (function() {
             resolve(blob);
           })
           .catch(error => {
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, 'Failed to generate ZIP for PHP files export');
+            } else {
+              console.error('Error generating PHP files ZIP:', error);
+            }
             reject(error);
           });
       } catch (error) {
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Error in exportPhpFiles function');
+        } else {
+          console.error('Error in exportPhpFiles:', error);
+        }
         reject(error);
       }
     });
@@ -474,7 +513,13 @@ function generateRandomString($length = 10) {
   function exportWordPressPlugin(project, options = {}) {
     return new Promise((resolve, reject) => {
       if (!JSZip) {
-        reject(new Error('JSZip is not loaded'));
+        const error = new Error('JSZip is not loaded. Cannot export WordPress plugin.');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Export WordPress Plugin Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -533,9 +578,19 @@ function generateRandomString($length = 10) {
             resolve(blob);
           })
           .catch(error => {
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, 'Failed to generate ZIP for WordPress plugin export');
+            } else {
+              console.error('Error generating WordPress plugin ZIP:', error);
+            }
             reject(error);
           });
       } catch (error) {
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Error in exportWordPressPlugin function');
+        } else {
+          console.error('Error in exportWordPressPlugin:', error);
+        }
         reject(error);
       }
     });
@@ -875,7 +930,13 @@ ${shortcodeMethods}}
   function exportNodeJsExpress(project, options = {}) {
     return new Promise((resolve, reject) => {
       if (!JSZip) {
-        reject(new Error('JSZip is not loaded'));
+        const error = new Error('JSZip is not loaded. Cannot export Node.js Express app.');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Export Node.js App Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -949,9 +1010,19 @@ ${shortcodeMethods}}
             resolve(blob);
           })
           .catch(error => {
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, 'Failed to generate ZIP for Node.js app export');
+            } else {
+              console.error('Error generating Node.js app ZIP:', error);
+            }
             reject(error);
           });
       } catch (error) {
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Error in exportNodeJsExpress function');
+        } else {
+          console.error('Error in exportNodeJsExpress:', error);
+        }
         reject(error);
       }
     });
@@ -1218,7 +1289,13 @@ MIT
   function exportDockerContainer(project, options = {}) {
     return new Promise((resolve, reject) => {
       if (!JSZip) {
-        reject(new Error('JSZip is not loaded'));
+        const error = new Error('JSZip is not loaded. Cannot export Docker container.');
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Export Docker Container Error');
+        } else {
+          console.error(error.message);
+        }
+        reject(error);
         return;
       }
       
@@ -1277,29 +1354,58 @@ MIT
                         .then(blob => {
                           resolve(blob);
                         })
-                        .catch(error => {
-                          reject(error);
+                        .catch(err => { // Renamed to err
+                          if (window.AP && window.AP.handleError) {
+                            window.AP.handleError(err, 'Failed to generate ZIP for Docker container');
+                          } else {
+                            console.error('Error generating Docker ZIP:', err);
+                          }
+                          reject(err);
                         });
                     })
-                    .catch(error => {
-                      reject(error);
+                    .catch(err => { // Renamed to err
+                      if (window.AP && window.AP.handleError) {
+                        window.AP.handleError(err, 'Failed to copy PHP files to Docker ZIP');
+                      } else {
+                        console.error('Error copying PHP files to Docker ZIP:', err);
+                      }
+                      reject(err);
                     });
                 })
-                .catch(error => {
-                  reject(error);
+                .catch(err => { // Renamed to err
+                  if (window.AP && window.AP.handleError) {
+                    window.AP.handleError(err, 'Failed to load intermediate PHP ZIP for Docker export');
+                  } else {
+                    console.error('Error loading PHP ZIP for Docker:', err);
+                  }
+                  reject(err);
                 });
             };
             
-            reader.onerror = function(error) {
-              reject(error);
+            reader.onerror = function(err) { // Renamed to err
+              if (window.AP && window.AP.handleError) {
+                window.AP.handleError(err, 'File reader error during Docker export preparation');
+              } else {
+                console.error('FileReader error in exportDockerContainer:', err);
+              }
+              reject(err);
             };
             
             reader.readAsArrayBuffer(phpFilesBlob);
           })
-          .catch(error => {
-            reject(error);
+          .catch(err => { // Renamed to err
+             // exportPhpFiles should have handled its own errors and AP.handleError call
+            if (!(window.AP && window.AP.handleError)) {
+                console.error('Error exporting PHP files for Docker container:', err);
+            }
+            reject(err); // Propagate rejection
           });
       } catch (error) {
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'Error in exportDockerContainer function');
+        } else {
+          console.error('Error in exportDockerContainer:', error);
+        }
         reject(error);
       }
     });
@@ -1437,7 +1543,13 @@ For production deployment, it's recommended to:
    */
   function deployProject(project, exportFormat, target, options = {}) {
     if (!project) {
-      return Promise.reject(new Error('No project to deploy'));
+      const error = new Error('No project to deploy');
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'Deploy Project Error');
+      } else {
+        console.error(error.message);
+      }
+      return Promise.reject(error);
     }
     
     // First export the project
@@ -1454,8 +1566,21 @@ For production deployment, it's recommended to:
           case DEPLOYMENT_TARGETS.FTP:
             return deployToFtp(project, exportFormat, exportedContent, options);
           default:
-            return Promise.reject(new Error('Unknown deployment target: ' + target));
+            const error = new Error('Unknown deployment target: ' + target);
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, 'Deploy Project Error');
+            } else {
+              console.error(error.message);
+            }
+            return Promise.reject(error);
         }
+      })
+      .catch(error => { // Catch errors from exportProject itself
+        // exportProject should have already called AP.handleError
+        if (!(window.AP && window.AP.handleError)) {
+            console.error('Error during project export before deployment:', error);
+        }
+        return Promise.reject(error); // Propagate rejection
       });
   }
   
@@ -1469,7 +1594,13 @@ For production deployment, it's recommended to:
    */
   function deployToCubbit(project, exportFormat, exportedContent, options = {}) {
     if (!CubbitStorage || !CubbitStorage.isInitialized()) {
-      return Promise.reject(new Error('Cubbit storage is not initialized'));
+      const error = new Error('Cubbit storage is not initialized for deployment');
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'Deploy to Cubbit Error');
+      } else {
+        console.error(error.message);
+      }
+      return Promise.reject(error);
     }
     
     // Determine file name and content type based on export format
@@ -1515,11 +1646,23 @@ For production deployment, it's recommended to:
   function deployToGitHubPages(project, exportFormat, exportedContent, options = {}) {
     // GitHub Pages only supports static content, so we can only deploy standalone HTML
     if (exportFormat !== EXPORT_FORMATS.STANDALONE_HTML) {
-      return Promise.reject(new Error('GitHub Pages only supports standalone HTML deployment'));
+      const error = new Error('GitHub Pages only supports standalone HTML deployment');
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'Deploy to GitHub Pages Error');
+      } else {
+        console.error(error.message);
+      }
+      return Promise.reject(error);
     }
     
     // This would require GitHub API integration
-    return Promise.reject(new Error('GitHub Pages deployment not implemented yet'));
+    const error = new Error('GitHub Pages deployment not implemented yet');
+    if (window.AP && window.AP.showToast) { // Using showToast as it's informational
+        window.AP.showToast(error.message, 'info');
+    } else {
+        console.warn(error.message);
+    }
+    return Promise.reject(error);
   }
   
   /**
@@ -1568,6 +1711,11 @@ For production deployment, it's recommended to:
           type: 'download'
         });
       } catch (error) {
+        if (window.AP && window.AP.handleError) {
+          window.AP.handleError(error, 'File Download Deployment Error');
+        } else {
+          console.error('Error in deployAsFileDownload:', error);
+        }
         reject(error);
       }
     });
@@ -1583,7 +1731,13 @@ For production deployment, it's recommended to:
    */
   function deployToFtp(project, exportFormat, exportedContent, options = {}) {
     // FTP deployment would require a server-side component
-    return Promise.reject(new Error('FTP deployment requires a server-side component'));
+    const error = new Error('FTP deployment requires a server-side component and is not implemented.');
+    if (window.AP && window.AP.showToast) { // Using showToast as it's informational
+        window.AP.showToast(error.message, 'info');
+    } else {
+        console.warn(error.message);
+    }
+    return Promise.reject(error);
   }
   
   /**

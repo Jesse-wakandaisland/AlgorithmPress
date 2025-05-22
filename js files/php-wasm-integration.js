@@ -1,6 +1,8 @@
 /**
  * PHP-WASM Integration Module
  * Handles PHP environment initialization and management for the builder
+ * 
+ * Depends on: error-handling.js (for AP.handleError and AP.showToast)
  */
 
 const PHPWasmIntegration = (function() {
@@ -43,7 +45,12 @@ const PHPWasmIntegration = (function() {
             checkPHPReady(resolve, reject);
           })
           .catch(error => {
-            console.error('Failed to load PHP-WASM script:', error);
+            // console.error('Failed to load PHP-WASM script:', error);
+            if (window.AP && window.AP.handleError) {
+                window.AP.handleError(error, 'Failed to load PHP-WASM script');
+            } else {
+                console.error('Failed to load PHP-WASM script:', error);
+            }
             reject(error);
           });
       } else {
@@ -82,7 +89,13 @@ const PHPWasmIntegration = (function() {
   function checkPHPReady(resolve, reject, attempts = 0) {
     // If we've waited too long, reject
     if (attempts > 50) { // 5 seconds (100ms * 50)
-      reject(new Error('Timeout waiting for PHP-WASM to initialize'));
+      const error = new Error('Timeout waiting for PHP-WASM to initialize');
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'PHP-WASM Initialization Timeout');
+      } else {
+        console.error(error);
+      }
+      reject(error);
       return;
     }
     
@@ -129,21 +142,34 @@ const PHPWasmIntegration = (function() {
         postRun: () => {
           console.log('PHP is ready to run code');
         },
-        onError: (error) => {
-          console.error('PHP error:', error);
-          notifyListeners('error', { error });
+        onError: (err) => { // Renamed to err to avoid conflict with outer error variable if any
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(err, 'PHP Internal Error');
+          } else {
+            console.error('PHP error:', err);
+          }
+          notifyListeners('error', { error: err });
         },
         print: (output) => {
-          console.log('PHP output:', output);
+          // console.log('PHP output:', output); // Potentially too verbose for general console
           notifyListeners('output', { output });
         },
-        printErr: (error) => {
-          console.error('PHP stderr:', error);
-          notifyListeners('error', { error });
+        printErr: (err) => { // Renamed to err
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(err, 'PHP Stderr');
+          } else {
+            console.error('PHP stderr:', err);
+          }
+          notifyListeners('error', { error: err });
         }
       });
     } catch (error) {
-      console.error('Failed to initialize PHP:', error);
+      // console.error('Failed to initialize PHP:', error);
+      if (window.AP && window.AP.handleError) {
+        window.AP.handleError(error, 'Failed to initialize PHP');
+      } else {
+        console.error('Failed to initialize PHP:', error);
+      }
       reject(error);
     }
   }
@@ -207,7 +233,13 @@ const PHPWasmIntegration = (function() {
   function executeCode(code) {
     return new Promise((resolve, reject) => {
       if (!phpLoaded || !phpModule) {
-        reject(new Error('PHP is not initialized'));
+        const error = new Error('PHP is not initialized');
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'PHP Execution Error');
+        } else {
+            console.error(error);
+        }
+        reject(error);
         return;
       }
       
@@ -215,7 +247,12 @@ const PHPWasmIntegration = (function() {
         const output = phpModule.run(code);
         resolve(output);
       } catch (error) {
-        console.error('Failed to execute PHP code:', error);
+        // console.error('Failed to execute PHP code:', error);
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'Failed to execute PHP code');
+        } else {
+            console.error('Failed to execute PHP code:', error);
+        }
         reject(error);
       }
     });
@@ -230,7 +267,13 @@ const PHPWasmIntegration = (function() {
   function createFile(path, content) {
     return new Promise((resolve, reject) => {
       if (!phpLoaded || !fileSystem) {
-        reject(new Error('PHP filesystem is not initialized'));
+        const error = new Error('PHP filesystem is not initialized');
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'File System Error');
+        } else {
+            console.error(error);
+        }
+        reject(error);
         return;
       }
       
@@ -245,7 +288,12 @@ const PHPWasmIntegration = (function() {
         fileSystem.writeFile(path, content);
         resolve(true);
       } catch (error) {
-        console.error(`Failed to create file ${path}:`, error);
+        // console.error(`Failed to create file ${path}:`, error);
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to create file ${path}`);
+        } else {
+            console.error(`Failed to create file ${path}:`, error);
+        }
         reject(error);
       }
     });
@@ -259,20 +307,37 @@ const PHPWasmIntegration = (function() {
   function readFile(path) {
     return new Promise((resolve, reject) => {
       if (!phpLoaded || !fileSystem) {
-        reject(new Error('PHP filesystem is not initialized'));
+        const error = new Error('PHP filesystem is not initialized');
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'File System Error');
+        } else {
+            console.error(error);
+        }
+        reject(error);
         return;
       }
       
       try {
         if (!fileSystem.exists(path)) {
-          reject(new Error(`File ${path} does not exist`));
+          const error = new Error(`File ${path} does not exist`);
+          if (window.AP && window.AP.handleError) {
+              window.AP.handleError(error, 'File System Read Error');
+          } else {
+              console.error(error.message);
+          }
+          reject(error);
           return;
         }
         
         const content = fileSystem.readFile(path, { encoding: 'utf8' });
         resolve(content);
       } catch (error) {
-        console.error(`Failed to read file ${path}:`, error);
+        // console.error(`Failed to read file ${path}:`, error);
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to read file ${path}`);
+        } else {
+            console.error(`Failed to read file ${path}:`, error);
+        }
         reject(error);
       }
     });
@@ -296,7 +361,13 @@ const PHPWasmIntegration = (function() {
   function createDirectory(path, recursive = true) {
     return new Promise((resolve, reject) => {
       if (!phpLoaded || !fileSystem) {
-        reject(new Error('PHP filesystem is not initialized'));
+        const error = new Error('PHP filesystem is not initialized');
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'File System Error');
+        } else {
+            console.error(error);
+        }
+        reject(error);
         return;
       }
       
@@ -304,7 +375,12 @@ const PHPWasmIntegration = (function() {
         fileSystem.mkdir(path, { recursive });
         resolve(true);
       } catch (error) {
-        console.error(`Failed to create directory ${path}:`, error);
+        // console.error(`Failed to create directory ${path}:`, error);
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to create directory ${path}`);
+        } else {
+            console.error(`Failed to create directory ${path}:`, error);
+        }
         reject(error);
       }
     });
@@ -318,20 +394,37 @@ const PHPWasmIntegration = (function() {
   function listFiles(path) {
     return new Promise((resolve, reject) => {
       if (!phpLoaded || !fileSystem) {
-        reject(new Error('PHP filesystem is not initialized'));
+        const error = new Error('PHP filesystem is not initialized');
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'File System Error');
+        } else {
+            console.error(error);
+        }
+        reject(error);
         return;
       }
       
       try {
         if (!fileSystem.exists(path)) {
-          reject(new Error(`Directory ${path} does not exist`));
+          const error = new Error(`Directory ${path} does not exist`);
+          if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'File System List Error');
+          } else {
+            console.error(error.message);
+          }
+          reject(error);
           return;
         }
         
         const files = fileSystem.readdir(path);
         resolve(files);
       } catch (error) {
-        console.error(`Failed to list files in ${path}:`, error);
+        // console.error(`Failed to list files in ${path}:`, error);
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, `Failed to list files in ${path}`);
+        } else {
+            console.error(`Failed to list files in ${path}:`, error);
+        }
         reject(error);
       }
     });
@@ -433,9 +526,21 @@ const PHPWasmIntegration = (function() {
           phpIniSettings
         })
           .then(resolve)
-          .catch(reject);
+          .catch(err => { // Renamed to err
+            if (window.AP && window.AP.handleError) {
+              window.AP.handleError(err, 'PHP Re-initialization failed during reset');
+            } else {
+              console.error('PHP Re-initialization failed during reset:', err);
+            }
+            reject(err);
+          });
       } catch (error) {
-        console.error('Failed to reset PHP:', error);
+        // console.error('Failed to reset PHP:', error);
+        if (window.AP && window.AP.handleError) {
+            window.AP.handleError(error, 'Failed to reset PHP');
+        } else {
+            console.error('Failed to reset PHP:', error);
+        }
         reject(error);
       }
     });

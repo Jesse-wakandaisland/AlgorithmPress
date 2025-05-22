@@ -138,6 +138,58 @@ function webhook_log($message) {
     }
 }
 
+// Helper function to generate a secure API key
+function generate_webhook_api_key($length = 40) {
+    // Use wp_generate_password for a strong random string
+    return wp_generate_password($length, false);
+}
+
+// Permission check function for API key
+function webhook_manager_permission_check(WP_REST_Request $request) {
+    $stored_api_key = get_option('webhook_manager_api_key');
+
+    // If no API key is configured in settings, deny access by default
+    if (empty($stored_api_key)) {
+        webhook_log('Access denied: No API key configured in settings.');
+        return new WP_Error(
+            'rest_forbidden_no_api_key_set',
+            'API key authentication is required, but no API key is configured in the plugin settings.',
+            array('status' => 503) // Service Unavailable, as it's a configuration issue
+        );
+    }
+
+    $api_key_header = $request->get_header('X-API-Key');
+    $api_key_param = $request->get_param('api_key');
+    $request_api_key = '';
+
+    if (!empty($api_key_header)) {
+        $request_api_key = $api_key_header;
+    } elseif (!empty($api_key_param)) {
+        $request_api_key = $api_key_param;
+    }
+
+    if (empty($request_api_key)) {
+        webhook_log('Access denied: Missing API key in request.');
+        return new WP_Error(
+            'rest_forbidden_missing_api_key',
+            'Missing API Key. Please provide the API key via X-API-Key header or api_key query parameter.',
+            array('status' => 401)
+        );
+    }
+
+    if (hash_equals($stored_api_key, $request_api_key)) {
+        return true; // Permission granted
+    } else {
+        webhook_log('Access denied: Invalid API key provided.');
+        return new WP_Error(
+            'rest_forbidden_invalid_api_key',
+            'Invalid API Key.',
+            array('status' => 403)
+        );
+    }
+}
+
+
 // Register dynamic endpoints from database
 add_action('rest_api_init', 'register_dynamic_webhook_routes');
 function register_dynamic_webhook_routes() {
@@ -161,7 +213,7 @@ function register_dynamic_webhook_routes() {
                 register_rest_route('convoengine/v1', '/' . $route['route_slug'] . '/', array(
                     'methods' => $route['http_method'],
                     'callback' => $route['callback_function'],
-                    'permission_callback' => '__return_true'
+                    'permission_callback' => 'webhook_manager_permission_check' // Updated permission callback
                 ));
             } else {
                 if (get_option('webhook_enable_logging', false)) {
@@ -228,30 +280,41 @@ function webhook_manager_page() {
     if (isset($_GET['action']) && $_GET['action'] == 'refresh') {
         echo '<div class="notice notice-info is-dismissible"><p>Page refreshed. Displaying current routes from database.</p></div>';
     }
-    
-    // Handle route deletion
-    if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['route_id']) && is_numeric($_GET['route_id'])) {
-        $route_id = intval($_GET['route_id']);
-        $result = $wpdb->delete($table_name, array('id' => $route_id), array('%d'));
-        
-        if ($result !== false) {
-            echo '<div class="notice notice-success is-dismissible"><p>Route deleted successfully!</p></div>';
+
+    // Handle POST actions (delete, activate, deactivate) with nonce verification
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (isset($_POST['action']) && isset($_POST['route_id']) && is_numeric($_POST['route_id'])) {
+            $action = sanitize_key($_POST['action']);
+            $route_id = intval($_POST['route_id']);
+            $nonce_action_string_base = 'webhook_manager_' . $action . '_route_';
+            
+            // Verify nonce
+            if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], $nonce_action_string_base . $route_id)) {
+                if ($action === 'delete_route') {
+                    $result = $wpdb->delete($table_name, array('id' => $route_id), array('%d'));
+                    if ($result !== false) {
+                        echo '<div class="notice notice-success is-dismissible"><p>Route deleted successfully!</p></div>';
+                    } else {
+                        echo '<div class="notice notice-error is-dismissible"><p>Error deleting route: ' . esc_html($wpdb->last_error) . '</p></div>';
+                    }
+                } elseif ($action === 'activate_route' || $action === 'deactivate_route') {
+                    $is_active = ($action === 'activate_route') ? 1 : 0;
+                    $result = $wpdb->update($table_name, array('is_active' => $is_active), array('id' => $route_id), array('%d'), array('%d'));
+                    if ($result !== false) {
+                        $status_text = $is_active ? 'activated' : 'deactivated';
+                        echo '<div class="notice notice-success is-dismissible"><p>Route ' . esc_html($status_text) . ' successfully!</p></div>';
+                    } else {
+                        echo '<div class="notice notice-error is-dismissible"><p>Error updating route status: ' . esc_html($wpdb->last_error) . '</p></div>';
+                    }
+                } else {
+                     echo '<div class="notice notice-warning is-dismissible"><p>Invalid action specified.</p></div>';
+                }
+            } else {
+                // Nonce verification failed
+                echo '<div class="notice notice-error is-dismissible"><p>Security check failed. Please try again.</p></div>';
+            }
         } else {
-            echo '<div class="notice notice-error is-dismissible"><p>Error deleting route: ' . $wpdb->last_error . '</p></div>';
-        }
-    }
-    
-    // Handle route activation/deactivation
-    if (isset($_GET['action']) && ($_GET['action'] == 'activate' || $_GET['action'] == 'deactivate') && isset($_GET['route_id']) && is_numeric($_GET['route_id'])) {
-        $route_id = intval($_GET['route_id']);
-        $is_active = ($_GET['action'] == 'activate') ? 1 : 0;
-        $result = $wpdb->update($table_name, array('is_active' => $is_active), array('id' => $route_id), array('%d'), array('%d'));
-        
-        if ($result !== false) {
-            $status = $is_active ? 'activated' : 'deactivated';
-            echo '<div class="notice notice-success is-dismissible"><p>Route ' . $status . ' successfully!</p></div>';
-        } else {
-            echo '<div class="notice notice-error is-dismissible"><p>Error updating route status: ' . $wpdb->last_error . '</p></div>';
+            echo '<div class="notice notice-warning is-dismissible"><p>Missing action or route ID for POST request.</p></div>';
         }
     }
     
@@ -315,14 +378,31 @@ function webhook_manager_page() {
                             <td><?php echo esc_html($route['description']); ?></td>
                             <td><?php echo $route['is_active'] ? '<span style="color:green;">Active</span>' : '<span style="color:red;">Inactive</span>'; ?></td>
                             <td><?php echo esc_html($route['created_at']); ?></td>
-                            <td>
+                            <td class="actions-column">
                                 <a href="<?php echo admin_url('admin.php?page=webhook-manager-add&action=edit&route_id=' . $route['id']); ?>" class="button button-small">Edit</a>
+                                
                                 <?php if ($route['is_active']): ?>
-                                    <a href="<?php echo admin_url('admin.php?page=webhook-manager&action=deactivate&route_id=' . $route['id']); ?>" class="button button-small">Deactivate</a>
+                                    <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=webhook-manager')); ?>" style="display:inline;">
+                                        <input type="hidden" name="action" value="deactivate_route">
+                                        <input type="hidden" name="route_id" value="<?php echo esc_attr($route['id']); ?>">
+                                        <?php wp_nonce_field('webhook_manager_deactivate_route_' . $route['id']); ?>
+                                        <input type="submit" value="Deactivate" class="button button-small">
+                                    </form>
                                 <?php else: ?>
-                                    <a href="<?php echo admin_url('admin.php?page=webhook-manager&action=activate&route_id=' . $route['id']); ?>" class="button button-small">Activate</a>
+                                    <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=webhook-manager')); ?>" style="display:inline;">
+                                        <input type="hidden" name="action" value="activate_route">
+                                        <input type="hidden" name="route_id" value="<?php echo esc_attr($route['id']); ?>">
+                                        <?php wp_nonce_field('webhook_manager_activate_route_' . $route['id']); ?>
+                                        <input type="submit" value="Activate" class="button button-small">
+                                    </form>
                                 <?php endif; ?>
-                                <a href="<?php echo admin_url('admin.php?page=webhook-manager&action=delete&route_id=' . $route['id']); ?>" class="button button-small" onclick="return confirm('Are you sure you want to delete this route? This action cannot be undone.')">Delete</a>
+                                
+                                <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=webhook-manager')); ?>" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this route? This action cannot be undone.');">
+                                    <input type="hidden" name="action" value="delete_route">
+                                    <input type="hidden" name="route_id" value="<?php echo esc_attr($route['id']); ?>">
+                                    <?php wp_nonce_field('webhook_manager_delete_route_' . $route['id']); ?>
+                                    <input type="submit" value="Delete" class="button button-small delete">
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -373,7 +453,7 @@ function webhook_testing_script() {
     <script type="text/javascript">
     jQuery(document).ready(function($) {
         // Add a link to open the testing modal
-        $('.wrap h1').after('<a href="#" id="open-webhook-tester" class="button">Test Webhook</a><div id="webhook-tester-modal" style="display:none; position:fixed; top:50px; left:50%; transform:translateX(-50%); width:80%; max-width:800px; background:#fff; padding:20px; border:1px solid #ccc; box-shadow:0 0 10px rgba(0,0,0,0.2); z-index:9999;"><h2>Webhook Tester</h2><div class="test-form"></div><div class="close-button" style="position:absolute; top:10px; right:10px; cursor:pointer;">×</div></div>');
+        $('.wrap h1').after('<a href="#" id="open-webhook-tester" class="button">Test Webhook</a><div id="webhook-tester-modal" style="display:none; position:fixed; top:50px; left:50%; transform:translateX(-50%); width:80%; max-width:800px; background:#fff; padding:20px; border:1px solid #ccc; box-shadow:0 0 10px rgba(0,0,0,0.2); z-index:9999;"><h2>Webhook Tester</h2><p>Note: API key authentication is active. Ensure you provide the correct API key for tests.</p><div class="test-form"></div><div class="close-button" style="position:absolute; top:10px; right:10px; cursor:pointer;">×</div></div>');
         
         // Get all routes for the form
         $.ajax({
@@ -395,6 +475,10 @@ function webhook_testing_script() {
                 });
                 
                 form += '</select></p>';
+
+                // API Key input
+                form += '<p><label for="test-api-key">API Key (X-API-Key header or api_key query param):</label><br>';
+                form += '<input type="text" id="test-api-key" name="test-api-key" style="width:100%;" placeholder="Enter API Key"></p>';
                 
                 // JSON payload for POST routes
                 form += '<div id="json-payload-container"><p><label for="test-payload">JSON Payload:</label><br>';
@@ -427,14 +511,28 @@ function webhook_testing_script() {
                     var route = $('#test-route').val();
                     var method = $('#test-route').find(':selected').data('method');
                     var payload = $('#test-payload').val();
+                    var apiKey = $('#test-api-key').val();
                     var $results = $('#test-results');
                     
                     $results.show().find('pre').html('Sending request...');
                     
+                    var requestUrl = '<?php echo rest_url('convoengine/v1/'); ?>' + route;
+                    
+                    // Add API key as query param if method is GET/DELETE and header is not preferred for testing simplicity
+                    // For POST/PUT, it's better to use headers.
+                    if ((method === 'GET' || method === 'DELETE') && apiKey) {
+                         requestUrl += (requestUrl.includes('?') ? '&' : '?') + 'api_key=' + encodeURIComponent(apiKey);
+                    }
+
                     var ajaxSettings = {
-                        url: '<?php echo rest_url('convoengine/v1/'); ?>' + route,
+                        url: requestUrl,
                         type: method,
                         dataType: 'json',
+                        beforeSend: function(xhr) {
+                            if (apiKey && (method === 'POST' || method === 'PUT')) { // Add as header for POST/PUT
+                                xhr.setRequestHeader('X-API-Key', apiKey);
+                            }
+                        },
                         complete: function(xhr, status) {
                             var responseText = xhr.responseText;
                             try {
@@ -687,22 +785,59 @@ function webhook_manager_add_page() {
 function webhook_manager_settings_page() {
     // Handle form submission
     if (isset($_POST['submit_webhook_settings'])) {
-        $enable_logging = isset($_POST['enable_logging']) ? true : false;
-        update_option('webhook_enable_logging', $enable_logging);
-        
-        echo '<div class="notice notice-success is-dismissible"><p>Settings saved successfully!</p></div>';
+        // Verify nonce
+        if (!isset($_POST['webhook_manager_settings_nonce']) || !wp_verify_nonce($_POST['webhook_manager_settings_nonce'], 'webhook_manager_settings_action')) {
+            echo '<div class="notice notice-error is-dismissible"><p>Nonce verification failed. Settings not saved.</p></div>';
+        } else {
+            $enable_logging = isset($_POST['enable_logging']) ? true : false;
+            update_option('webhook_enable_logging', $enable_logging);
+
+            // Handle API key generation/saving
+            if (isset($_POST['webhook_manager_api_key'])) {
+                $new_api_key = sanitize_text_field($_POST['webhook_manager_api_key']);
+                if (!empty($new_api_key)) {
+                    update_option('webhook_manager_api_key', $new_api_key);
+                } elseif (isset($_POST['generate_new_api_key'])) { 
+                    // If generate was clicked and field was empty, or just to ensure it's new
+                    $new_api_key = generate_webhook_api_key();
+                    update_option('webhook_manager_api_key', $new_api_key);
+                }
+            } elseif (isset($_POST['generate_new_api_key'])) { // Generate if field wasn't even there but button was pressed
+                 $new_api_key = generate_webhook_api_key();
+                 update_option('webhook_manager_api_key', $new_api_key);
+            }
+            
+            echo '<div class="notice notice-success is-dismissible"><p>Settings saved successfully!</p></div>';
+        }
     }
     
     // Get current settings
     $enable_logging = get_option('webhook_enable_logging', false);
+    $current_api_key = get_option('webhook_manager_api_key', '');
+    if (empty($current_api_key)) {
+        // Generate an API key if one doesn't exist yet, for display
+        $current_api_key = generate_webhook_api_key();
+        update_option('webhook_manager_api_key', $current_api_key);
+         echo '<div class="notice notice-info is-dismissible"><p>A new API key has been generated for you. Make sure to save settings if you wish to keep it or generate a new one.</p></div>';
+    }
     
     // Display the form
     ?>
     <div class="wrap">
         <h1>Webhook Manager Settings</h1>
+        <p>API Key Authentication is active. All webhook requests must include a valid API key.</p>
         
         <form method="post" action="">
+            <?php wp_nonce_field('webhook_manager_settings_action', 'webhook_manager_settings_nonce'); ?>
             <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="webhook_manager_api_key">API Key</label></th>
+                    <td>
+                        <input type="text" name="webhook_manager_api_key" id="webhook_manager_api_key" class="regular-text" value="<?php echo esc_attr($current_api_key); ?>" readonly>
+                        <button type="button" id="generate_new_api_key_button" class="button">Generate New API Key</button>
+                        <p class="description">This key must be included in webhook requests via the <code>X-API-Key</code> header or <code>api_key</code> query parameter.</p>
+                    </td>
+                </tr>
                 <tr>
                     <th scope="row">Logging</th>
                     <td>
@@ -717,8 +852,29 @@ function webhook_manager_settings_page() {
             
             <p class="submit">
                 <input type="submit" name="submit_webhook_settings" class="button button-primary" value="Save Settings">
+                <input type="hidden" name="generate_new_api_key" id="generate_new_api_key_hidden_flag" value="0">
+
             </p>
         </form>
     </div>
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            var apiKeyField = document.getElementById('webhook_manager_api_key');
+            var generateButton = document.getElementById('generate_new_api_key_button');
+            var hiddenGenerateFlag = document.getElementById('generate_new_api_key_hidden_flag');
+
+            if (generateButton && apiKeyField) {
+                generateButton.addEventListener('click', function() {
+                    // Simple random string generation for client-side display. 
+                    // Server will generate its own if this is submitted empty or flag is set.
+                    var newKey = Array(40).fill(0).map(() => Math.random().toString(36).charAt(2)).join('');
+                    apiKeyField.value = newKey;
+                    apiKeyField.readOnly = false; // Allow user to copy or even manually edit if they wish
+                    hiddenGenerateFlag.value = "1"; // Signal that new key generation was intended
+                    alert('New API key generated. Click "Save Settings" to apply it.');
+                });
+            }
+        });
+    </script>
     <?php
 }
