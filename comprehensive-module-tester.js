@@ -94,15 +94,35 @@ const ComprehensiveModuleTester = (function() {
       required: ['initialize', 'runComprehensiveCheck'],
       optional: ['applyGlobalFixes', 'applyModuleFixes', 'tryAutoFix']
     },
-    'APIGateway': {
+    'ApiGateway': { // Corrected casing
       type: 'object',
-      required: ['initialize', 'request'],
-      optional: ['registerEndpoint', 'addMiddleware', 'setAuthToken', 'clearAuthToken', 'isInitialized']
+      required: ['initialize', 'registerApi', 'call'], // Corrected methods
+      optional: ['unregisterApi', 'getHistory', 'clearHistory', 'getApis'] // Added more methods
     },
     'PluginSystemModule': {
       type: 'object',
       required: ['initialize', 'registerPlugin', 'activatePlugin', 'deactivatePlugin'],
       optional: ['getPlugin', 'listPlugins', 'listActivePlugins', 'isPluginActive', 'addHook', 'removeHook', 'triggerHook']
+    },
+    'WordPressConnector': {
+      type: 'object',
+      required: ['init', 'toggleConnectorPanel'],
+      optional: ['getSites', 'getCurrentSite', 'callApi', 'getSettings', 'updateSettings']
+    },
+    'PHPWasmIntegration': {
+      type: 'object',
+      required: ['initialize', 'executeCode', 'createFile', 'readFile'],
+      optional: ['executeFile', 'createDirectory', 'listFiles', 'reset', 'isInitialized']
+    },
+    'PHPWasmBuilder': {
+      type: 'object',
+      required: ['initialize', 'createNewProject', 'saveCurrentProject', 'loadProject'],
+      optional: ['exportProject', 'showPreview', 'addComponent', 'getState']
+    },
+    'PHPWasmExporter': {
+      type: 'object',
+      required: ['initialize', 'exportProject'],
+      optional: ['deployProject', 'EXPORT_FORMATS', 'DEPLOYMENT_TARGETS']
     }
   };
 

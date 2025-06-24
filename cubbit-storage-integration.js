@@ -688,7 +688,9 @@ if (typeof window !== 'undefined') {
   window.CubbitStorage = CubbitStorage;
   // Add togglePanel for dock/module-framework integration
   window.CubbitStorage.togglePanel = function() {
-    const panelId = 'cubbit-storage-panel';
+    // This is a placeholder for UI interaction, actual panel management might be elsewhere
+    console.log("CubbitStorage.togglePanel called");
+    const panelId = 'cubbit-storage-panel'; // Example panel ID
     let panel = document.getElementById(panelId);
     if (!panel) {
       // Optionally, create the panel here or show a toast
@@ -702,5 +704,62 @@ if (typeof window !== 'undefined') {
     } else {
       panel.classList.add('hidden');
     }
+  };
+
+  // Adapter for UnifiedStorageInterface
+  window.initializeCubbitStorage = async function(config) {
+    // Ensure CubbitStorage itself is initialized with the passed config
+    // The main initialize function of CubbitStorage handles API key, bucket name etc.
+    await CubbitStorage.initialize(config);
+
+    if (!CubbitStorage.isInitialized()) {
+        throw new Error("CubbitStorage failed to initialize with the provided config.");
+    }
+
+    // Return the interface expected by UnifiedStorage
+    return {
+      save: async (key, data, options = {}) => {
+        // CubbitStorage.uploadFile expects content and contentType.
+        // We'll assume data is serializable to JSON if not already a Blob.
+        let contentToUpload = data;
+        let contentType = options.contentType || 'application/octet-stream';
+
+        if (typeof data !== 'string' && !(data instanceof Blob)) {
+          try {
+            contentToUpload = JSON.stringify(data);
+            contentType = 'application/json';
+          } catch (e) {
+            throw new Error('Data is not a string, Blob, or JSON serializable.');
+          }
+        }
+        // Pass metadata if provided in options
+        return CubbitStorage.uploadFile(key, contentToUpload, contentType, options.metadata || {});
+      },
+      load: async (key, options = {}) => {
+        // CubbitStorage.downloadFile returns string or Blob.
+        // If it was stored as JSON, UnifiedStorage users might expect parsed object.
+        const downloadedData = await CubbitStorage.downloadFile(key);
+        if (typeof downloadedData === 'string') {
+          try {
+            // Attempt to parse if it looks like JSON, common for app data
+            if (downloadedData.trim().startsWith('{') || downloadedData.trim().startsWith('[')) {
+              return JSON.parse(downloadedData);
+            }
+          } catch (e) {
+            // Not JSON, return as string
+          }
+        }
+        return downloadedData; // Return string or Blob
+      },
+      remove: async (key, options = {}) => {
+        return CubbitStorage.deleteFile(key);
+      },
+      list: async (prefix = '', options = {}) => {
+        // CubbitStorage.listDirectory returns an array of objects like { key, size, lastModified, etag }
+        // This should be compatible with what UnifiedStorage expects.
+        return CubbitStorage.listDirectory(prefix);
+      }
+      // Other methods like getPublicUrl, getFileMetadata could be exposed if UnifiedStorage supports them
+    };
   };
 }

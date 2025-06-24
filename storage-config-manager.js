@@ -7,7 +7,8 @@ const StorageConfigManager = (function() {
   'use strict';
 
   // Configuration storage key
-  const CONFIG_STORAGE_KEY = 'algorithmpress_storage_config';
+  const CONFIG_STORAGE_KEY = 'algorithmpress_storage_config'; // Stores all available provider configs
+  const ACTIVE_STORAGE_SETTINGS_KEY = 'algorithmpress_active_storage_settings'; // Stores the chosen primary provider and its config
   const ENCRYPTION_KEY_STORAGE = 'algorithmpress_encryption_key';
 
   // Default configurations for each provider
@@ -431,6 +432,41 @@ const StorageConfigManager = (function() {
       } catch (error) {
         console.error('Failed to import configurations:', error);
         return false;
+      }
+    },
+
+    /**
+     * Set the active storage provider settings
+     */
+    setActiveStorageSettings: async (providerType, providerConfig) => {
+      try {
+        const settingsToSave = { providerType, config: providerConfig };
+        const encryptedSettings = await encryptData(settingsToSave, encryptionKey);
+        localStorage.setItem(ACTIVE_STORAGE_SETTINGS_KEY, JSON.stringify(encryptedSettings));
+        console.log(`Active storage set to: ${providerType}`);
+      } catch (error) {
+        console.error('Failed to set active storage settings:', error);
+        throw error;
+      }
+    },
+
+    /**
+     * Get the active storage provider settings
+     * @returns {Promise<Object|null>} { providerType: string, config: Object } or null if not set
+     */
+    getActiveStorageSettings: async () => {
+      try {
+        const storedSettings = localStorage.getItem(ACTIVE_STORAGE_SETTINGS_KEY);
+        if (storedSettings) {
+          const encryptedData = JSON.parse(storedSettings);
+          const decryptedSettings = await decryptData(encryptedData, encryptionKey);
+          return decryptedSettings; // Should be { providerType, config }
+        }
+        return null; // No active setting stored
+      } catch (error) {
+        console.error('Failed to get active storage settings:', error);
+        // Fallback or default if necessary, e.g., return { providerType: UnifiedStorage.PROVIDERS.LOCAL, config: {} };
+        return null;
       }
     }
   };

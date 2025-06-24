@@ -88,20 +88,31 @@ function webhook_manager_activate() {
 }
 
 // Handle incoming webhook payload
-function handle_webhook() {
+function handle_webhook(WP_REST_Request $request) { // Added WP_REST_Request parameter
     // Check if it's a POST request and has a JSON payload
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['CONTENT_TYPE']) && $_SERVER['CONTENT_TYPE'] === 'application/json') {
+    // The REST API handles method checking, but content type check is still good.
+    $content_type = $request->get_content_type();
+
+    if ($request->get_method() === 'POST' && isset($content_type['type']) && $content_type['type'] === 'application/json') {
         // Get the JSON payload
-        $payload = json_decode(file_get_contents('php://input'), true);
+        $payload = $request->get_json_params();
         
-        // Store the content from the payload
+        // Get route slug from the request
+        $route_slug = $request->get_route();
+        // Clean up the route slug, e.g., remove namespace: /convoengine/v1/actual_slug/
+        $route_parts = explode('/', trim($route_slug, '/'));
+        $actual_slug = end($route_parts); // Get the last part as the slug
+
+        // Store the content from the payload, keyed by slug
         if (isset($payload['content'])) {
             $content = $payload['content'];
-            // Store the content in WordPress options
-            update_option('last_webhook_content', $content);
+            $option_key = 'webhook_content_' . sanitize_key($actual_slug);
+            update_option($option_key, $content);
             
             // Log the webhook request
-            webhook_log('Received webhook content: ' . substr($content, 0, 100) . (strlen($content) > 100 ? '...' : ''));
+            webhook_log('Route [' . $actual_slug . '] received content: ' . substr(wp_json_encode($content), 0, 200) . (strlen(wp_json_encode($content)) > 200 ? '...' : ''));
+        } else {
+            webhook_log('Route [' . $actual_slug . '] received POST request but no "content" field in JSON payload.');
         }
         
         // Respond with success
@@ -118,14 +129,22 @@ function handle_webhook() {
 
 // Callback function to retrieve stored content
 function get_stored_content(WP_REST_Request $request) {
-    $content = get_option('last_webhook_content');
+    // Get route slug from the request
+    $route_slug = $request->get_route();
+    // Clean up the route slug
+    $route_parts = explode('/', trim($route_slug, '/'));
+    $actual_slug = end($route_parts);
+
+    $option_key = 'webhook_content_' . sanitize_key($actual_slug);
+    $content = get_option($option_key);
     
     if ($content === false) {
-        return new WP_Error('no_content', 'No content found.', array('status' => 404));
+        webhook_log('Route [' . $actual_slug . '] - No content found for this route.');
+        return new WP_Error('no_content_for_route', 'No content found for this specific route.', array('status' => 404));
     }
     
-    webhook_log('Content retrieved from webhook storage');
-    return new WP_REST_Response(array('content' => $content), 200);
+    webhook_log('Route [' . $actual_slug . '] - Content retrieved from webhook storage.');
+    return new WP_REST_Response(array('content' => $content, 'route_slug' => $actual_slug), 200);
 }
 
 // Function to log webhook activities

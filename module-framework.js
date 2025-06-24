@@ -119,7 +119,7 @@ const ModuleFramework = (function() {
     // Register module
     _modules[module.id] = module;
     
-    console.log(`Module ${module.name} (${module.id}) registered with framework`);
+    window.debugLog(`Module ${module.name} (${module.id}) registered with framework`);
     
     // Publish registration event
     _eventBus.publish('module:registered', {
@@ -225,7 +225,7 @@ const ModuleFramework = (function() {
             instance
           });
           
-          console.log(`Module ${module.name} (${moduleId}) loaded successfully in ${module.loadTime.toFixed(2)}ms`);
+          window.debugLog(`Module ${module.name} (${moduleId}) loaded successfully in ${module.loadTime.toFixed(2)}ms`);
           
           resolve(instance);
         })
@@ -260,8 +260,13 @@ const ModuleFramework = (function() {
         const script = document.createElement('script');
         script.src = url;
         script.async = true;
+        // TODO: For production, implement Subresource Integrity (SRI) here
+        // e.g., script.integrity = "sha384-hashValue"; script.crossOrigin = "anonymous";
+        // This requires knowing the hash of the script content beforehand.
         
         script.onload = function() {
+          // Ensure the module is actually available if it's expected to register itself globally
+          // This depends on module design. For now, we assume simple script load is enough.
           resolve();
         };
         
@@ -358,7 +363,7 @@ const ModuleFramework = (function() {
       name: module.name
     });
     
-    console.log(`Module ${module.name} (${moduleId}) unloaded`);
+    window.debugLog(`Module ${module.name} (${moduleId}) unloaded`);
     
     return true;
   }
@@ -479,7 +484,7 @@ const ModuleFramework = (function() {
    * Initialize the framework
    */
   function initialize() {
-    console.log('AlgorithmPress Module Framework initialized');
+    window.debugLog('AlgorithmPress Module Framework initialized');
     
     // Check for previously registered modules
     const modules = Object.keys(window).filter(key => {

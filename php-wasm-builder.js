@@ -166,98 +166,107 @@ const PHPWasmBuilder = (function() {
   
   /**
    * Initialize storage
+   * This function will now rely on UnifiedStorage, which is initialized by production-initialization.js
+   * based on settings from StorageConfigManager.
    */
-  function initStorage() {
-    // First check for local storage availability
-    const storageType = getStoragePreference();
-    
-    if (storageType === 'cubbitDS3') {
-      // Initialize Cubbit DS3 storage
-      const apiKey = localStorage.getItem('cubbit_api_key');
-      const bucketName = localStorage.getItem('cubbit_bucket') || 'php-wasm-projects';
-      
-      if (!apiKey) {
-        // No API key found, default to local storage
-        console.warn('No Cubbit API key found, defaulting to local storage');
-        setStoragePreference('localStorage');
-        return Promise.resolve();
-      }
-      
-      return CubbitStorage.initialize({
-        apiKey: apiKey,
-        bucketName: bucketName
-      }).then(() => {
-        state.storageReady = true;
-        setStoragePreference('cubbitDS3');
-      }).catch(error => {
-        console.error('Failed to initialize Cubbit storage:', error);
-        // Fall back to local storage
-        setStoragePreference('localStorage');
-        return Promise.resolve();
-      });
+  async function initStorage() {
+    // StorageConfigManager and UnifiedStorage should already be initialized by production-initialization.js
+    if (window.UnifiedStorage && window.StorageConfigManager) {
+        try {
+            // Wait for a short period if they might not be ready (though production-init should handle this)
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const activeSettings = await StorageConfigManager.getActiveStorageSettings();
+            if (activeSettings) {
+                console.log(`PHPWasmBuilder: Storage configured with ${activeSettings.providerType}.`);
+                updateStoragePreferenceUI(activeSettings.providerType, activeSettings.config);
+            } else {
+                console.log('PHPWasmBuilder: No active storage from StorageConfigManager, defaulting UI to localStorage.');
+                updateStoragePreferenceUI('localStorage', {}); // Default UI to localStorage
+            }
+            state.storageReady = true; // Assume UnifiedStorage is ready or has a fallback
+            return Promise.resolve();
+        } catch (error) {
+            console.error('PHPWasmBuilder: Error getting active storage settings:', error);
+            updateStoragePreferenceUI('localStorage', {}); // Fallback UI
+            state.storageReady = true; // Still proceed, UnifiedStorage might have its own fallback
+            return Promise.resolve();
+        }
     } else {
-      // Use local storage
-      setStoragePreference('localStorage');
-      state.storageReady = true;
-      return Promise.resolve();
+      console.warn('UnifiedStorage or StorageConfigManager not found. Storage operations might fail.');
+      state.storageReady = false;
+      return Promise.reject(new Error('Core storage modules not available.'));
     }
   }
-  
+
   /**
-   * Get storage preference
+   * Update the storage preference UI based on loaded settings
    */
-  function getStoragePreference() {
-    return localStorage.getItem('storage_preference') || 'localStorage';
-  }
-  
-  /**
-   * Set storage preference
-   */
-  function setStoragePreference(preference) {
-    localStorage.setItem('storage_preference', preference);
-    
-    // Update radio buttons
+  function updateStoragePreferenceUI(providerType, config) {
     if (elements.storageRadios) {
       elements.storageRadios.forEach(radio => {
-        radio.checked = radio.value === preference;
+        radio.checked = radio.value === providerType;
       });
     }
-    
-    // Show/hide Cubbit settings
     if (elements.cubbitSettings) {
-      elements.cubbitSettings.style.display = preference === 'cubbitDS3' ? 'block' : 'none';
+      elements.cubbitSettings.style.display = providerType === UnifiedStorage.PROVIDERS.CUBBIT ? 'block' : 'none';
+      if (providerType === UnifiedStorage.PROVIDERS.CUBBIT && config) {
+        elements.cubbitApiKey.value = config.apiKey || '';
+        elements.cubbitBucket.value = config.bucketName || 'php-wasm-projects';
+      }
     }
   }
-  
+
   /**
-   * Configure storage settings
+   * Configure storage settings - now interacts with StorageConfigManager
    */
-  function configureStorage() {
-    const preference = getStoragePreference();
-    
-    if (preference === 'cubbitDS3') {
-      // Save Cubbit settings
-      const apiKey = elements.cubbitApiKey.value;
-      const bucketName = elements.cubbitBucket.value || 'php-wasm-projects';
-      
-      if (!apiKey) {
-        showToast('error', 'Cubbit API key is required');
+  async function configureStorage() {
+    const selectedProviderType = Array.from(elements.storageRadios).find(radio => radio.checked)?.value;
+
+    if (!selectedProviderType) {
+        showToast('error', 'Please select a storage provider.');
         return;
-      }
-      
-      localStorage.setItem('cubbit_api_key', apiKey);
-      localStorage.setItem('cubbit_bucket', bucketName);
-      
-      // Reinitialize storage
-      initStorage()
-        .then(() => {
-          showToast('success', 'Cubbit storage configured successfully');
-        })
-        .catch(error => {
-          showToast('error', 'Failed to configure Cubbit storage: ' + error.message);
-        });
-    } else {
-      showToast('info', 'Local storage is active');
+    }
+
+    let providerConfig = {};
+    if (selectedProviderType === UnifiedStorage.PROVIDERS.CUBBIT) {
+        const apiKey = elements.cubbitApiKey.value;
+        const bucketName = elements.cubbitBucket.value || 'php-wasm-projects';
+        if (!apiKey) {
+            showToast('error', 'Cubbit API Key is required.');
+            return;
+        }
+        providerConfig = { apiKey, bucketName, baseUrl: 'https://api.cubbit.io' }; // Assuming baseUrl
+    }
+    // Add similar blocks for other configurable providers if any
+
+    try {
+        // Save this specific provider's configuration
+        await StorageConfigManager.setConfig(selectedProviderType, providerConfig);
+        // Set it as the active provider
+        await StorageConfigManager.setActiveStorageSettings(selectedProviderType, providerConfig);
+
+        // Re-initialize UnifiedStorage with the new settings.
+        // production-initialization.js handles the actual UnifiedStorage.initialize()
+        // We might need to trigger a re-init or notify production-initialization
+        // For now, assume next page load or a manual refresh of storage status will pick it up.
+        // Or, directly re-initialize UnifiedStorage here if appropriate (might conflict with production-init)
+
+        // For immediate effect, we can try to re-init UnifiedStorage if app structure allows:
+        if (window.ProductionIntegrationHelper && typeof window.ProductionIntegrationHelper.reinitializeStorage === 'function') {
+            await window.ProductionIntegrationHelper.reinitializeStorage();
+        } else {
+             // If direct re-init is not safe/available, user might need to reload or it's handled by production-init on next load.
+            console.warn("Consider implementing ProductionIntegrationHelper.reinitializeStorage() for immediate effect or rely on next load.");
+        }
+
+        state.storageReady = true; // Assuming it will be ready
+        updateStoragePreferenceUI(selectedProviderType, providerConfig);
+        showToast('success', `${selectedProviderType} configured and set as active. UnifiedStorage will use this on next full init or if re-initialized.`);
+
+    } catch (error) {
+        showToast('error', `Failed to configure ${selectedProviderType}: ${error.message}`);
+        console.error(`Configuration error for ${selectedProviderType}:`, error);
     }
   }
   
@@ -587,29 +596,37 @@ const PHPWasmBuilder = (function() {
       state.currentProject.customScripts = elements.jsEditor.value;
     }
     
-    // Save to storage
-    const storageType = getStoragePreference();
-    
-    if (storageType === 'cubbitDS3' && CubbitStorage.isInitialized()) {
-      CubbitStorage.saveProject(state.currentProject, state.currentProject.id)
-        .then(() => {
-          // Save reference to local storage
-          saveProjectReference(state.currentProject);
-          showToast('success', 'Project saved to Cubbit DS3');
+    // Save to storage using UnifiedStorage
+    if (window.UnifiedStorage && state.storageReady) {
+      const projectKey = 'project_' + state.currentProject.id;
+      UnifiedStorage.save(projectKey, state.currentProject)
+        .then(result => {
+          saveProjectReference(state.currentProject); // Keep local reference for listing
+          showToast('success', `Project saved via ${result.provider}`);
+          console.log('Project saved successfully:', result);
         })
         .catch(error => {
-          console.error('Failed to save project to Cubbit:', error);
+          console.error('Failed to save project via UnifiedStorage:', error);
           showToast('error', 'Failed to save project: ' + error.message);
+          // Optional: Attempt a direct localStorage save as an emergency fallback?
+          // try {
+          //   localStorage.setItem(projectKey, JSON.stringify(state.currentProject));
+          //   saveProjectReference(state.currentProject);
+          //   showToast('warning', 'Project saved to local browser storage (fallback).');
+          // } catch (localError) {
+          //   showToast('error', 'Critical: Failed to save project to any storage: ' + localError.message);
+          // }
         });
     } else {
-      // Save to local storage
+      showToast('error', 'Storage system not ready. Cannot save project.');
+      console.error('UnifiedStorage not available or not ready during saveCurrentProject.');
+      // Fallback to direct localStorage if critical, though ideally UnifiedStorage has its own localStorage fallback.
       try {
         localStorage.setItem('project_' + state.currentProject.id, JSON.stringify(state.currentProject));
         saveProjectReference(state.currentProject);
-        showToast('success', 'Project saved');
-      } catch (error) {
-        console.error('Failed to save project to local storage:', error);
-        showToast('error', 'Failed to save project: ' + error.message);
+        showToast('warning', 'Project saved to local browser storage (emergency fallback).');
+      } catch (e) {
+         showToast('error', 'Critical: Failed to save project to any storage.');
       }
     }
   }
@@ -656,168 +673,140 @@ const PHPWasmBuilder = (function() {
   /**
    * Load the last project
    */
-  function loadLastProject() {
+  async function loadLastProject() {
     const lastProjectId = localStorage.getItem('last_project_id');
     if (!lastProjectId) {
-      // No last project, create a new one
-      createNewProject();
+      createNewProject(); // This will also save it via UnifiedStorage
       return;
     }
-    
-    // Load the project
-    loadProject(lastProjectId)
-      .then(project => {
-        if (project) {
-          state.currentProject = project;
-          updateProjectUI();
-          showToast('info', 'Project loaded: ' + project.name);
-        } else {
-          // Project not found, create a new one
-          createNewProject();
-        }
-      })
-      .catch(error => {
-        console.error('Failed to load last project:', error);
-        showToast('error', 'Failed to load last project: ' + error.message);
+
+    try {
+      const project = await loadProject(lastProjectId);
+      if (project) {
+        state.currentProject = project;
+        updateProjectUI();
+        showToast('info', 'Project loaded: ' + project.name);
+      } else {
+        console.warn(`Last project ID ${lastProjectId} not found in configured storage. Creating new project.`);
+        localStorage.removeItem('last_project_id'); // Clear invalid last project ID
+        // Also remove from project_list if it exists there with this ID
+        const projectList = JSON.parse(localStorage.getItem('project_list') || '[]');
+        const updatedProjectList = projectList.filter(p => p.id !== lastProjectId);
+        localStorage.setItem('project_list', JSON.stringify(updatedProjectList));
         createNewProject();
-      });
+      }
+    } catch (error) {
+      console.error('Failed to load last project:', error);
+      showToast('error', 'Failed to load last project: ' + error.message + ". Creating new project.");
+      localStorage.removeItem('last_project_id');
+      createNewProject();
+    }
   }
   
   /**
    * Populate the projects list for the open project modal
+   * This will primarily list projects from the local 'project_list' cache.
+   * Actual loading will be through UnifiedStorage.
    */
-  function populateProjectsList() {
+  async function populateProjectsList() {
     if (!elements.projectsList) return Promise.resolve();
     
-    const projectList = JSON.parse(localStorage.getItem('project_list') || '[]');
+    let projectList = JSON.parse(localStorage.getItem('project_list') || '[]');
     
     // Sort by last modified date (newest first)
     projectList.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
     
-    // Clear list
-    elements.projectsList.innerHTML = '';
+    elements.projectsList.innerHTML = ''; // Clear list
     
-    // Add each project
-    projectList.forEach(project => {
+    if (projectList.length === 0) {
+        elements.projectsList.innerHTML = '<p class="text-muted p-3">No projects found. Create a new project to get started!</p>';
+    }
+
+    projectList.forEach(projectMeta => {
       const projectEl = document.createElement('a');
       projectEl.href = '#';
       projectEl.className = 'list-group-item list-group-item-action';
-      projectEl.setAttribute('data-project-id', project.id);
+      projectEl.setAttribute('data-project-id', projectMeta.id);
       
-      const lastModified = new Date(project.lastModified);
+      const lastModified = new Date(projectMeta.lastModified);
+      const storageDisplay = projectMeta.storageMethod || 'Unknown'; // Use stored meta if available
       
       projectEl.innerHTML = `
         <div class="d-flex w-100 justify-content-between">
-          <h5 class="mb-1">${escapeHtml(project.name)}</h5>
+          <h5 class="mb-1">${escapeHtml(projectMeta.name)}</h5>
           <small>${lastModified.toLocaleString()}</small>
         </div>
-        <p class="mb-1">Storage: ${project.storageMethod === 'cubbitDS3' ? 'Cubbit DS3' : 'Browser Local Storage'}</p>
+        <p class="mb-1">Expected Storage: ${storageDisplay === UnifiedStorage.PROVIDERS.CUBBIT ? 'Cubbit DS3' : 'Browser Local Storage'}</p>
       `;
       
-      projectEl.addEventListener('click', (e) => {
+      projectEl.addEventListener('click', async (e) => {
         e.preventDefault();
-        loadProject(project.id).then(loadedProject => {
+        try {
+          const loadedProject = await loadProject(projectMeta.id);
           if (loadedProject) {
             state.currentProject = loadedProject;
             updateProjectUI();
             modals.openProject.hide();
             showToast('info', 'Project loaded: ' + loadedProject.name);
+          } else {
+            showToast('error', `Project "${projectMeta.name}" not found in the configured storage.`);
+            // Consider removing from local list if not found
+            // projectList = projectList.filter(p => p.id !== projectMeta.id);
+            // localStorage.setItem('project_list', JSON.stringify(projectList));
+            // populateProjectsList(); // Refresh list
           }
-        });
+        } catch (err) {
+            showToast('error', `Error loading project: ${err.message}`);
+        }
       });
-      
       elements.projectsList.appendChild(projectEl);
     });
     
-    // If using Cubbit, also load projects from there
-    if (getStoragePreference() === 'cubbitDS3' && CubbitStorage.isInitialized()) {
-      return CubbitStorage.listProjects().then(cubbitProjects => {
-        // Filter out projects that are already in the local list
-        const localIds = projectList.map(p => p.id);
-        const newCubbitProjects = cubbitProjects.filter(p => !localIds.includes(p.id));
-        
-        // Add Cubbit projects
-        newCubbitProjects.forEach(project => {
-          const projectEl = document.createElement('a');
-          projectEl.href = '#';
-          projectEl.className = 'list-group-item list-group-item-action';
-          projectEl.setAttribute('data-project-id', project.id);
-          
-          const lastModified = new Date(project.lastModified);
-          
-          projectEl.innerHTML = `
-            <div class="d-flex w-100 justify-content-between">
-              <h5 class="mb-1">${escapeHtml(project.name)}</h5>
-              <small>${lastModified.toLocaleString()}</small>
-            </div>
-            <p class="mb-1">Storage: Cubbit DS3</p>
-          `;
-          
-          projectEl.addEventListener('click', (e) => {
-            e.preventDefault();
-            loadProject(project.id, 'cubbitDS3').then(loadedProject => {
-              if (loadedProject) {
-                state.currentProject = loadedProject;
-                updateProjectUI();
-                modals.openProject.hide();
-                showToast('info', 'Project loaded: ' + loadedProject.name);
-              }
-            });
-          });
-          
-          elements.projectsList.appendChild(projectEl);
-        });
-      }).catch(error => {
-        console.error('Failed to list Cubbit projects:', error);
-        return Promise.resolve();
-      });
-    }
-    
+    // Note: Listing projects directly from Cubbit or other remotes here can be slow or complex.
+    // The current approach relies on `project_list` in localStorage as a cache/index.
+    // For a more robust solution, `UnifiedStorage.list()` could be used if implemented to return metadata.
+    // For now, this local list is the primary source for the "Open Project" modal.
     return Promise.resolve();
   }
   
   /**
-   * Load a project
+   * Load a project using UnifiedStorage
    */
-  function loadProject(projectId, storageMethod) {
-    storageMethod = storageMethod || getProjectStorageMethod(projectId);
-    
-    if (storageMethod === 'cubbitDS3' && CubbitStorage.isInitialized()) {
-      return CubbitStorage.loadProject(projectId).catch(error => {
-        console.error('Failed to load project from Cubbit:', error);
-        // Try to load from local storage as fallback
-        return loadProjectFromLocalStorage(projectId);
-      });
-    } else {
-      return loadProjectFromLocalStorage(projectId);
+  async function loadProject(projectId) {
+    if (!window.UnifiedStorage || !state.storageReady) {
+      showToast('error', 'Storage system not ready.');
+      console.error('UnifiedStorage not available or not ready during loadProject.');
+      // Try direct localStorage as an emergency fallback ONLY if UnifiedStorage itself isn't attempting this.
+      try {
+          const projectJson = localStorage.getItem('project_' + projectId);
+          if (projectJson) return JSON.parse(projectJson);
+      } catch(e) { /* ignore */ }
+      return null;
     }
-  }
-  
-  /**
-   * Get the storage method for a project
-   */
-  function getProjectStorageMethod(projectId) {
-    const projectList = JSON.parse(localStorage.getItem('project_list') || '[]');
-    const project = projectList.find(p => p.id === projectId);
-    
-    return project ? project.storageMethod : 'localStorage';
-  }
-  
-  /**
-   * Load a project from local storage
-   */
-  function loadProjectFromLocalStorage(projectId) {
+
+    const projectKey = 'project_' + projectId;
     try {
-      const projectJson = localStorage.getItem('project_' + projectId);
-      if (!projectJson) {
-        console.warn('Project not found in local storage:', projectId);
-        return Promise.resolve(null);
+      const projectData = await UnifiedStorage.load(projectKey);
+      if (projectData) {
+        // Ensure it's an object, as UnifiedStorage might return string/blob from some providers
+        return typeof projectData === 'string' ? JSON.parse(projectData) : projectData;
       }
-      
-      return Promise.resolve(JSON.parse(projectJson));
+      console.warn(`Project ${projectId} not found via UnifiedStorage.`);
+      return null;
     } catch (error) {
-      console.error('Failed to load project from local storage:', error);
-      return Promise.reject(error);
+      console.error(`Failed to load project ${projectId} via UnifiedStorage:`, error);
+      showToast('error', `Error loading project: ${error.message}`);
+      // Attempt to load from local storage as a last resort if UnifiedStorage fails badly
+      try {
+        const projectJson = localStorage.getItem(projectKey);
+        if (projectJson) {
+          showToast('warning', 'Loaded project from local browser storage (fallback).');
+          return JSON.parse(projectJson);
+        }
+      } catch (localError) {
+        // ignore
+      }
+      return null;
     }
   }
   

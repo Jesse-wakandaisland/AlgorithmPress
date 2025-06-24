@@ -130,10 +130,14 @@
     // Initialize error monitoring first
     if (window.ErrorMonitoringSystem) {
       try {
+        // TODO: Configure remoteEndpoint from a global config or environment variable
+        const remoteLoggingEndpoint = null; // Example: window.APP_CONFIG.REMOTE_LOG_URL || null;
+
         await window.ErrorMonitoringSystem.initialize({
           enableConsoleLogging: PRODUCTION_CONFIG.debug,
           enableRemoteLogging: PRODUCTION_CONFIG.enableErrorReporting,
-          enableUserNotifications: false,
+          remoteEndpoint: remoteLoggingEndpoint, // Set the endpoint here
+          enableUserNotifications: false, // User notifications can be enabled if a proper system is in place
           enablePerformanceMonitoring: PRODUCTION_CONFIG.enablePerformanceMonitoring
         });
         console.log('✅ Error monitoring system initialized');
@@ -144,31 +148,72 @@
     }
     
     // Initialize storage systems
+    let activeStorageConfig = null;
     if (window.StorageConfigManager) {
       try {
         await window.StorageConfigManager.initialize();
         console.log('✅ Storage config manager initialized');
+        activeStorageConfig = await window.StorageConfigManager.getActiveStorageSettings();
+        if (activeStorageConfig) {
+          console.log(`✅ Active storage settings loaded: ${activeStorageConfig.providerType}`);
+        } else {
+          console.log('ℹ️ No active storage settings found, will use defaults.');
+        }
       } catch (error) {
-        console.error('❌ Storage config manager initialization failed:', error);
-        throw error;
+        console.error('❌ Storage config manager initialization or loading active settings failed:', error);
+        // Proceed with default storage if config manager fails
       }
     }
     
     if (window.UnifiedStorage) {
       try {
-        await window.UnifiedStorage.initialize({
-          primaryProvider: 'localStorage',
+        let unifiedStorageInitOptions = {
+          primaryProvider: 'localStorage', // Default
           fallbackProviders: ['localStorage'],
+          providers: {}, // To store specific provider configs
           settings: {
             enableFailover: true,
             enableCaching: true,
             retryAttempts: 3,
             connectionTimeout: 10000
           }
-        });
-        console.log('✅ Unified storage initialized');
+        };
+
+        if (activeStorageConfig && activeStorageConfig.providerType && activeStorageConfig.config) {
+          unifiedStorageInitOptions.primaryProvider = activeStorageConfig.providerType;
+          // Ensure the primary provider is also in fallback if it's not localStorage
+          if (activeStorageConfig.providerType !== 'localStorage') {
+            unifiedStorageInitOptions.fallbackProviders = [activeStorageConfig.providerType, 'localStorage'];
+          } else {
+             unifiedStorageInitOptions.fallbackProviders = ['localStorage'];
+          }
+          // Pass the specific configuration for the chosen provider
+          unifiedStorageInitOptions.providers[activeStorageConfig.providerType] = activeStorageConfig.config;
+
+          // Also, ensure any other configurations from StorageConfigManager are loaded
+          // This part might need more sophisticated merging if multiple providers can be active simultaneously
+          // For now, we prioritize the activeStorageConfig
+          const allStoredConfigs = await window.StorageConfigManager.exportConfigurations(); // This is encrypted
+                                                                                             // We need a method to get decrypted configs for UnifiedStorage
+                                                                                             // Or StorageConfigManager itself should initialize UnifiedStorage providers
+          // For now, let's assume activeStorageConfig.config is what UnifiedStorage needs for its primary provider
+          // unifiedStorageInitOptions.providers = { ... allDecryptedConfigs, [activeStorageConfig.providerType]: activeStorageConfig.config };
+
+        } else {
+          console.log('ℹ️ Initializing UnifiedStorage with default localStorage.');
+        }
+
+        await window.UnifiedStorage.initialize(unifiedStorageInitOptions);
+        console.log(`✅ Unified storage initialized with primary: ${window.UnifiedStorage.getStats().primaryProvider}`);
       } catch (error) {
-        console.warn('⚠️ Unified storage initialization failed, using fallback:', error);
+        console.warn('⚠️ Unified storage initialization failed, attempting fallback to basic localStorage:', error);
+        try {
+          // Simplified fallback initialization
+          await window.UnifiedStorage.initialize({ primaryProvider: 'localStorage', fallbackProviders: ['localStorage'] });
+          console.log('✅ Unified storage initialized with basic localStorage fallback.');
+        } catch (fallbackError) {
+          console.error('❌ Basic localStorage fallback for UnifiedStorage also failed:', fallbackError);
+        }
       }
     }
     
@@ -417,6 +462,9 @@
   function notifyParentWindow(event, data) {
     try {
       if (window.parent && window.parent !== window) {
+        // TODO: Replace '*' with a specific target origin for postMessage if the embedding context is known and trusted.
+        // Using '*' can be a security risk if the application is embedded in malicious sites.
+        // For a general purpose tool, this might need to be configurable or carefully documented.
         window.parent.postMessage({
           source: 'algorithmpress',
           event,
@@ -448,6 +496,13 @@
 
   // Export production status checker
   window.getProductionStatus = getProductionStatus;
+
+  // Global debug logger
+  window.debugLog = function(...args) {
+    if (PRODUCTION_CONFIG && PRODUCTION_CONFIG.debug) {
+      console.log(...args);
+    }
+  };
 
   // Start initialization after a short delay
   setTimeout(() => {

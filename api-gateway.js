@@ -340,7 +340,10 @@ const ApiGateway = (function() {
     }
     
     // TODO: Implement more sophisticated permission checking
-    return true;
+    // For now, if not a wildcard, and no specific permission matched (which is not implemented yet), deny.
+    // This makes it default deny instead of default allow.
+    console.warn(`API Gateway: Permission check for caller '${caller}' on permissions '${permissions.join(',')}' defaulted to deny. Implement sophisticated checks.`);
+    return false;
   }
   
   /**

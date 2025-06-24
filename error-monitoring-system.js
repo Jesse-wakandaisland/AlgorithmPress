@@ -481,9 +481,15 @@ const ErrorMonitoringSystem = (function() {
   }
 
   function showUserNotification(message, type) {
-    // Implementation depends on your notification system
-    // This is a placeholder for user notifications
-    console.warn('User notification:', message);
+    // Use window.showToast if available (potentially provided by UI framework)
+    if (typeof window.showToast === 'function') {
+      // Assuming window.showToast takes (type, message) or similar
+      // Adjust if the actual signature is different
+      window.showToast(type === ERROR_LEVELS.ERROR ? 'error' : 'info', message);
+    } else {
+      // Fallback if no global toast function is found
+      console.warn(`[User Notification - ${type}]: ${message}`);
+    }
   }
 
   function sendToRemoteEndpoint(logEntry) {

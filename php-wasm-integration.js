@@ -34,21 +34,26 @@ const PHPWasmIntegration = (function() {
     
     // Create a promise that resolves when PHP-WASM is ready
     return new Promise((resolve, reject) => {
-      if (typeof window.PHP === 'undefined') {
-        // If PHP-WASM hasn't been loaded yet, load it
+      // Check if PHP object exists from the main HTML script tag
+      if (typeof window.PHP !== 'undefined') {
+        // PHP-WASM script is already loaded (likely from AlgorithmPress.html)
+        // It might not be fully initialized yet, so we still use checkPHPReady
+        console.log('PHP-WASM script tag found, checking readiness...');
+        checkPHPReady(resolve, reject);
+      } else {
+        // Fallback: If PHP-WASM script wasn't included in HTML, load it dynamically.
+        // This is a less ideal path for production.
+        console.warn('PHP-WASM script not found in HTML, attempting dynamic load...');
         loadScript('https://cdn.jsdelivr.net/npm/php-wasm/php-tags.jsdelivr.mjs', 'module')
           .then(() => {
-            console.log('PHP-WASM script loaded, initializing...');
-            // Script loaded, but we need to wait for PHP to be initialized
+            window.debugLog('PHP-WASM script dynamically loaded, initializing...');
             checkPHPReady(resolve, reject);
           })
           .catch(error => {
-            console.error('Failed to load PHP-WASM script:', error);
+            console.error('Failed to load PHP-WASM script dynamically:', error);
+            notifyListeners('error', { context: 'php-script-load', error });
             reject(error);
           });
-      } else {
-        // PHP-WASM is already loaded, initialize PHP
-        initializePhp(resolve, reject);
       }
     });
   }
@@ -101,7 +106,7 @@ const PHPWasmIntegration = (function() {
    * @param {Function} reject - Promise reject function
    */
   function initializePhp(resolve, reject) {
-    console.log('Initializing PHP environment...');
+    window.debugLog('Initializing PHP environment...');
     
     try {
       // Create PHP instance
@@ -109,7 +114,7 @@ const PHPWasmIntegration = (function() {
         phpVersion: phpVersion,
         extensions: enabledExtensions,
         postInit: (php) => {
-          console.log('PHP initialized successfully');
+          window.debugLog('PHP initialized successfully');
           
           // Apply PHP.ini settings
           applyPhpIniSettings(php);
@@ -130,16 +135,24 @@ const PHPWasmIntegration = (function() {
           console.log('PHP is ready to run code');
         },
         onError: (error) => {
-          console.error('PHP error:', error);
-          notifyListeners('error', { error });
+          const errorMessage = error.message || String(error);
+          console.error('PHP error:', errorMessage);
+          if (window.ErrorMonitoringSystem) {
+            window.ErrorMonitoringSystem.logError('php-wasm', 'PHP Execution Error', { details: errorMessage }, error);
+          }
+          notifyListeners('error', { error: errorMessage });
         },
         print: (output) => {
-          console.log('PHP output:', output);
+          // console.log('PHP output:', output); // Can be noisy
           notifyListeners('output', { output });
         },
         printErr: (error) => {
-          console.error('PHP stderr:', error);
-          notifyListeners('error', { error });
+          const errorMessage = error.message || String(error);
+          console.error('PHP stderr:', errorMessage);
+          if (window.ErrorMonitoringSystem) {
+            window.ErrorMonitoringSystem.logError('php-wasm', 'PHP Stderr', { details: errorMessage }, error);
+          }
+          notifyListeners('error', { error: errorMessage });
         }
       });
     } catch (error) {
@@ -156,7 +169,7 @@ const PHPWasmIntegration = (function() {
     for (const [key, value] of Object.entries(phpIniSettings)) {
       try {
         php.ini_set(key, value);
-        console.log(`PHP.ini setting applied: ${key}=${value}`);
+        window.debugLog(`PHP.ini setting applied: ${key}=${value}`);
       } catch (error) {
         console.warn(`Failed to set PHP.ini setting ${key}=${value}:`, error);
       }

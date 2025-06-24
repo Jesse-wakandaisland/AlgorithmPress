@@ -6517,12 +6517,33 @@ const WordPressConnector = (function() {
      */
     function _saveSettings() {
         try {
+            // Sanitize sites data before saving to avoid storing sensitive credentials
+            const sitesToStore = _sites.map(site => {
+                const siteCopy = { ...site };
+                if (siteCopy.auth) {
+                    siteCopy.auth = { ...siteCopy.auth }; // Clone auth object
+                    // Remove sensitive fields before saving
+                    delete siteCopy.auth.password;
+                    delete siteCopy.auth.token; // Assuming JWT tokens are sensitive
+                    delete siteCopy.auth.clientSecret; // For OAuth
+                    // For JWT/OAuth, accessToken might be stored if it's considered session-like
+                    // but long-lived tokens or refresh tokens should be handled with more care.
+                    // For this iteration, we'll assume accessToken is okay for sessionStorage behavior,
+                    // but not for localStorage. Since this saves to localStorage, we'll clear it.
+                    delete siteCopy.auth.accessToken;
+                    delete siteCopy.auth.refreshToken;
+                }
+                return siteCopy;
+            });
+
             const dataToStore = {
                 settings: _settings,
-                sites: _sites,
+                sites: sitesToStore, // Save the sanitized sites
                 currentSite: _currentSite,
                 flows: _flows,
                 microModules: _microModules
+                // pluginRegistry is not saved to keep localStorage smaller; it's fetched on demand.
+                // apiSchemaCache is not saved.
             };
             
             localStorage.setItem('wp_connector_data', JSON.stringify(dataToStore));

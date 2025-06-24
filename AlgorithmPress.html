@@ -5204,12 +5204,21 @@ button:nth-child(11):active{
   <script src="architecture-overview.js"></script>
   <script src="rainbow-indicator.js"></script>
   <script src="module-framework.js"></script>
+  <!-- Core Production & Debugging Scripts - Load early -->
+  <script src="error-monitoring-system.js"></script>
+  <script src="unified-storage-interface.js"></script> <!-- Added unified-storage-interface.js here -->
+  <script src="storage-config-manager.js"></script> <!-- Added storage-config-manager.js here -->
+  <script src="production-integration-diagnostics.js"></script> <!-- For ProductionDiagnostics -->
+  <script src="production-integration-helper.js"></script>
+  <script src="production-initialization.js"></script>
+  <script src="debug-validation-logs.js"></script> <!-- Must be after scripts it might instrument or wait for like ModuleFramework & waitForGlobal (in prod-init) -->
+
   <script src="php-wasm-builder.js"></script>
  
   <script src="dock-functionality.js"></script>
   <script src="dock-integration.js"></script>
-  <script scrc="wordpress-context-menu.js"></script>
-  <script scrc="wordpress-connector.js"></script>
+  <script src="wordpress-context-menu.js"></script>
+  <script src="wordpress-connector.js"></script>
   <script src="demo-system-module.js"></script>
   <script src="api-gateway.js"></script>
   <script src="plugin-system-module.js"></script>
@@ -5222,11 +5231,10 @@ button:nth-child(11):active{
   <script src="rainbow-indicator.js"></script>
   <script src="implementation-example-module.js"></script>
   <script src="cubbit-storage-integration.js"></script>
-  <script scrc="unified-storage-interface.js"></script>
-  <script scrc="storage-provider-implementations.js"></script>
-  <script scrc="storage-providers.js"></script>
-  <script scrc="storage-config-manager.js"></script>
-  <script scrc="web3-storage-providers.js"></script>
+  <!-- unified-storage-interface.js and storage-config-manager.js moved up -->
+  <script src="storage-provider-implementations.js"></script>
+  <script src="storage-providers.js"></script>
+  <script src="web3-storage-providers.js"></script>
   <script src="modules-integration.js"></script>
    <script src="nue-integration.js"></script>
 

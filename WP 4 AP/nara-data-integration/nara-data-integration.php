@@ -94,19 +94,28 @@ function nara_sync_cpt_to_settings() {
     wp_reset_postdata();
 }
 
-// Add custom cron schedule for every minute
-function custom_cron_schedules($schedules) {
-    $schedules['every_minute'] = array(
-        'interval' => 60,
-        'display'  => __('Every Minute')
-    );
+// Add custom cron schedule for every minute (Consider making this configurable)
+function custom_cron_schedules_nara($schedules) { // Renamed to avoid conflicts
+    // Default to hourly, can be overridden by other plugins or settings if needed.
+    if (!isset($schedules['hourly'])) {
+        $schedules['hourly'] = array(
+            'interval' => 3600,
+            'display'  => __('Once Hourly')
+        );
+    }
+    // Example for a more frequent schedule if needed, but default to less frequent.
+    // $schedules['every_five_minutes'] = array(
+    //     'interval' => 300,
+    //     'display'  => __('Every Five Minutes')
+    // );
     return $schedules;
 }
-add_filter('cron_schedules', 'custom_cron_schedules');
+add_filter('cron_schedules', 'custom_cron_schedules_nara');
 
 // Schedule the cron job if not already scheduled
+// TODO: Make the schedule interval configurable via plugin settings. Defaulting to 'hourly'.
 if (!wp_next_scheduled('nara_sync_cron_event')) {
-    wp_schedule_event(time(), 'every_minute', 'nara_sync_cron_event');
+    wp_schedule_event(time(), 'hourly', 'nara_sync_cron_event');
 }
 
 // Define the function to run for syncing from Google Sheets
