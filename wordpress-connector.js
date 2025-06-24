@@ -3,9 +3,11 @@
  * A comprehensive WordPress integration system that connects to WordPress instances,
  * exposes plugin APIs, and provides a foundation for micro-module architecture.
  */
+console.log('[WordPressConnector] Script start');
 
 const WordPressConnector = (function() {
     // Private variables
+    console.log('[WordPressConnector] IIFE start');
     let _initialized = false;
     let _sites = [];
     let _currentSite = null;
@@ -8014,7 +8016,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Expose the WordPress Connector to the global scope for developers
     window.WordPressConnector = WordPressConnector;
+    console.log('[WordPressConnector] Assigned to window.WordPressConnector');
 });
+console.log('[WordPressConnector] Script end');
 
 /**
  * Module Export for Integration with PHP-WASM Builder

@@ -2,9 +2,11 @@
  * Error Monitoring and Logging System for AlgorithmPress
  * Production-ready error handling, logging, and monitoring
  */
+console.log('[ErrorMonitoringSystem] Script start');
 
 const ErrorMonitoringSystem = (function() {
   'use strict';
+  console.log('[ErrorMonitoringSystem] IIFE start');
 
   // Error levels
   const ERROR_LEVELS = {
@@ -608,4 +610,6 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = ErrorMonitoringSystem;
 } else if (typeof window !== 'undefined') {
   window.ErrorMonitoringSystem = ErrorMonitoringSystem;
+  console.log('[ErrorMonitoringSystem] Assigned to window.ErrorMonitoringSystem');
 }
+console.log('[ErrorMonitoringSystem] Script end');

@@ -2,9 +2,11 @@
  * Production Initialization Script for AlgorithmPress
  * Ensures all modules are properly integrated and production-ready
  */
+console.log('[ProductionInitialization] Script start');
 
 (function() {
   'use strict';
+  console.log('[ProductionInitialization] IIFE start');
 
   // Production configuration
   const PRODUCTION_CONFIG = {
@@ -506,8 +508,10 @@
 
   // Start initialization after a short delay
   setTimeout(() => {
+    console.log('[ProductionInitialization] Calling initializeProduction after delay.');
     initializeProduction();
   }, PRODUCTION_CONFIG.initializationDelay);
 
-  console.log('🏭 Production initialization script loaded');
+  console.log('🏭 Production initialization script loaded, IIFE end');
 })();
+console.log('[ProductionInitialization] Script end');

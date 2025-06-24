@@ -2,6 +2,7 @@
  * Storage Configuration Manager for AlgorithmPress
  * Manages storage provider configurations with encryption and validation
  */
+console.log('[StorageConfigManager] Script start');
 
 const StorageConfigManager = (function() {
   'use strict';
@@ -11,226 +12,241 @@ const StorageConfigManager = (function() {
   const ACTIVE_STORAGE_SETTINGS_KEY = 'algorithmpress_active_storage_settings'; // Stores the chosen primary provider and its config
   const ENCRYPTION_KEY_STORAGE = 'algorithmpress_encryption_key';
 
-  // Default configurations for each provider
-  const DEFAULT_CONFIGS = {
-    [UnifiedStorage.PROVIDERS.AWS_S3]: {
-      name: 'Amazon S3',
-      fields: [
-        { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key ID' },
-        { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Access Key' },
-        { name: 'region', type: 'select', required: true, label: 'Region', 
-          options: ['us-east-1', 'us-west-1', 'us-west-2', 'eu-west-1', 'eu-central-1', 'ap-southeast-1'] },
-        { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
-      ],
-      testConnection: true,
-      icon: 'fab fa-aws'
-    },
+  // Default configurations for each provider - will be populated in initialize()
+  let DEFAULT_CONFIGS = {};
 
-    [UnifiedStorage.PROVIDERS.GOOGLE_CLOUD]: {
-      name: 'Google Cloud Storage',
-      fields: [
-        { name: 'projectId', type: 'text', required: true, label: 'Project ID' },
-        { name: 'keyFile', type: 'textarea', required: true, label: 'Service Account Key (JSON)' },
-        { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
-      ],
-      testConnection: true,
-      icon: 'fab fa-google'
-    },
-
-    [UnifiedStorage.PROVIDERS.AZURE_BLOB]: {
-      name: 'Azure Blob Storage',
-      fields: [
-        { name: 'accountName', type: 'text', required: true, label: 'Account Name' },
-        { name: 'accountKey', type: 'password', required: true, label: 'Account Key' },
-        { name: 'containerName', type: 'text', required: true, label: 'Container Name' }
-      ],
-      testConnection: true,
-      icon: 'fab fa-microsoft'
-    },
-
-    [UnifiedStorage.PROVIDERS.DIGITALOCEAN]: {
-      name: 'DigitalOcean Spaces',
-      fields: [
-        { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
-        { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
-        { name: 'region', type: 'select', required: true, label: 'Region',
-          options: ['nyc3', 'ams3', 'sgp1', 'fra1', 'sfo3'] },
-        { name: 'bucket', type: 'text', required: true, label: 'Space Name' }
-      ],
-      testConnection: true,
-      icon: 'fab fa-digital-ocean'
-    },
-
-    [UnifiedStorage.PROVIDERS.VULTR]: {
-      name: 'Vultr Object Storage',
-      fields: [
-        { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
-        { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
-        { name: 'region', type: 'select', required: true, label: 'Region',
-          options: ['ewr1', 'sjc1', 'ams1'] },
-        { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-server'
-    },
-
-    [UnifiedStorage.PROVIDERS.OVHCLOUD]: {
-      name: 'OVHcloud Object Storage',
-      fields: [
-        { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
-        { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
-        { name: 'region', type: 'select', required: true, label: 'Region',
-          options: ['gra', 'sbg', 'bhs', 'waw'] },
-        { name: 'bucket', type: 'text', required: true, label: 'Container Name' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-cloud'
-    },
-
-    [UnifiedStorage.PROVIDERS.ALIBABA_OSS]: {
-      name: 'Alibaba Cloud OSS',
-      fields: [
-        { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key ID' },
-        { name: 'secretAccessKey', type: 'password', required: true, label: 'Access Key Secret' },
-        { name: 'region', type: 'select', required: true, label: 'Region',
-          options: ['cn-hangzhou', 'cn-shanghai', 'cn-beijing', 'us-west-1', 'ap-southeast-1'] },
-        { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-cloud'
-    },
-
-    [UnifiedStorage.PROVIDERS.BACKBLAZE_B2]: {
-      name: 'Backblaze B2',
-      fields: [
-        { name: 'accessKeyId', type: 'text', required: true, label: 'Key ID' },
-        { name: 'secretAccessKey', type: 'password', required: true, label: 'Application Key' },
-        { name: 'region', type: 'select', required: true, label: 'Region',
-          options: ['us-west-000', 'us-west-001', 'eu-central-003'] },
-        { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-archive'
-    },
-
-    [UnifiedStorage.PROVIDERS.WASABI]: {
-      name: 'Wasabi Hot Cloud Storage',
-      fields: [
-        { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
-        { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
-        { name: 'region', type: 'select', required: true, label: 'Region',
-          options: ['us-east-1', 'us-east-2', 'us-west-1', 'eu-central-1', 'ap-northeast-1'] },
-        { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-fire'
-    },
-
-    [UnifiedStorage.PROVIDERS.LINODE]: {
-      name: 'Linode Object Storage',
-      fields: [
-        { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
-        { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
-        { name: 'region', type: 'select', required: true, label: 'Region',
-          options: ['us-east-1', 'eu-central-1', 'ap-south-1'] },
-        { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-server'
-    },
-
-    [UnifiedStorage.PROVIDERS.CUBBIT]: {
-      name: 'Cubbit DS3',
-      fields: [
-        { name: 'apiKey', type: 'password', required: true, label: 'API Key' },
-        { name: 'bucketName', type: 'text', required: true, label: 'Bucket Name' },
-        { name: 'baseUrl', type: 'text', required: false, label: 'Base URL', 
-          placeholder: 'https://api.cubbit.io' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-cube'
-    },
-
-    // Web3 Storage Providers
-    [UnifiedStorage.PROVIDERS.IPFS]: {
-      name: 'IPFS',
-      fields: [
-        { name: 'gateway', type: 'text', required: false, label: 'IPFS Gateway',
-          placeholder: 'https://ipfs.io/ipfs/' },
-        { name: 'pinataApiKey', type: 'text', required: false, label: 'Pinata API Key' },
-        { name: 'pinataSecretKey', type: 'password', required: false, label: 'Pinata Secret Key' },
-        { name: 'useLocalNode', type: 'checkbox', required: false, label: 'Use Local IPFS Node' },
-        { name: 'localNodeUrl', type: 'text', required: false, label: 'Local Node URL',
-          placeholder: 'http://localhost:5001' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-network-wired'
-    },
-
-    [UnifiedStorage.PROVIDERS.STORJ]: {
-      name: 'Storj DCS',
-      fields: [
-        { name: 'accessGrant', type: 'textarea', required: false, label: 'Access Grant' },
-        { name: 'apiKey', type: 'text', required: false, label: 'API Key' },
-        { name: 'passphrase', type: 'password', required: false, label: 'Passphrase' },
-        { name: 'satellite', type: 'text', required: false, label: 'Satellite',
-          placeholder: 'us1.storj.io:7777' },
-        { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-satellite'
-    },
-
-    [UnifiedStorage.PROVIDERS.ARWEAVE]: {
-      name: 'Arweave',
-      fields: [
-        { name: 'wallet', type: 'textarea', required: true, label: 'Wallet JSON' },
-        { name: 'gateway', type: 'text', required: false, label: 'Gateway URL',
-          placeholder: 'https://arweave.net' },
-        { name: 'bundlrNode', type: 'text', required: false, label: 'Bundlr Node',
-          placeholder: 'https://node1.bundlr.network' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-infinity'
-    },
-
-    [UnifiedStorage.PROVIDERS.FILECOIN]: {
-      name: 'Filecoin',
-      fields: [
-        { name: 'web3StorageToken', type: 'password', required: false, label: 'Web3.Storage Token' },
-        { name: 'lighthouseApiKey', type: 'password', required: false, label: 'Lighthouse API Key' },
-        { name: 'provider', type: 'select', required: true, label: 'Provider',
-          options: ['web3.storage', 'lighthouse'] }
-      ],
-      testConnection: true,
-      icon: 'fas fa-coins'
-    },
-
-    [UnifiedStorage.PROVIDERS.SIA]: {
-      name: 'Sia Skynet',
-      fields: [
-        { name: 'skynetPortal', type: 'text', required: false, label: 'Skynet Portal',
-          placeholder: 'https://siasky.net' },
-        { name: 'apiUrl', type: 'text', required: false, label: 'Local API URL',
-          placeholder: 'http://localhost:9980' },
-        { name: 'apiPassword', type: 'password', required: false, label: 'API Password' }
-      ],
-      testConnection: true,
-      icon: 'fas fa-cloud-upload-alt'
-    },
-
-    [UnifiedStorage.PROVIDERS.SWARM]: {
-      name: 'Ethereum Swarm',
-      fields: [
-        { name: 'gateway', type: 'text', required: false, label: 'Swarm Gateway',
-          placeholder: 'https://gateway.ethswarm.org' },
-        { name: 'beeApiUrl', type: 'text', required: false, label: 'Bee API URL',
-          placeholder: 'http://localhost:1633' }
-      ],
-      testConnection: true,
-      icon: 'fab fa-ethereum'
+  /**
+   * Populates the DEFAULT_CONFIGS object.
+   * Must be called after UnifiedStorage is available.
+   */
+  function _populateDefaultConfigs() {
+    if (typeof UnifiedStorage === 'undefined' || !UnifiedStorage.PROVIDERS) {
+      console.error('[StorageConfigManager] CRITICAL: UnifiedStorage.PROVIDERS not available when trying to populate default configs. This indicates a severe loading order issue.');
+      // DEFAULT_CONFIGS will remain empty, likely causing issues later, but prevents immediate script crash here.
+      // The main initialize() should probably fail or throw if this happens.
+      return false;
     }
-  };
+    DEFAULT_CONFIGS = {
+      [UnifiedStorage.PROVIDERS.AWS_S3]: {
+        name: 'Amazon S3',
+        fields: [
+          { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key ID' },
+          { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Access Key' },
+          { name: 'region', type: 'select', required: true, label: 'Region',
+            options: ['us-east-1', 'us-west-1', 'us-west-2', 'eu-west-1', 'eu-central-1', 'ap-southeast-1'] },
+          { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
+        ],
+        testConnection: true,
+        icon: 'fab fa-aws'
+      },
+
+      [UnifiedStorage.PROVIDERS.GOOGLE_CLOUD]: {
+        name: 'Google Cloud Storage',
+        fields: [
+          { name: 'projectId', type: 'text', required: true, label: 'Project ID' },
+          { name: 'keyFile', type: 'textarea', required: true, label: 'Service Account Key (JSON)' },
+          { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
+        ],
+        testConnection: true,
+        icon: 'fab fa-google'
+      },
+
+      [UnifiedStorage.PROVIDERS.AZURE_BLOB]: {
+        name: 'Azure Blob Storage',
+        fields: [
+          { name: 'accountName', type: 'text', required: true, label: 'Account Name' },
+          { name: 'accountKey', type: 'password', required: true, label: 'Account Key' },
+          { name: 'containerName', type: 'text', required: true, label: 'Container Name' }
+        ],
+        testConnection: true,
+        icon: 'fab fa-microsoft'
+      },
+
+      [UnifiedStorage.PROVIDERS.DIGITALOCEAN]: {
+        name: 'DigitalOcean Spaces',
+        fields: [
+          { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
+          { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
+          { name: 'region', type: 'select', required: true, label: 'Region',
+            options: ['nyc3', 'ams3', 'sgp1', 'fra1', 'sfo3'] },
+          { name: 'bucket', type: 'text', required: true, label: 'Space Name' }
+        ],
+        testConnection: true,
+        icon: 'fab fa-digital-ocean'
+      },
+
+      [UnifiedStorage.PROVIDERS.VULTR]: {
+        name: 'Vultr Object Storage',
+        fields: [
+          { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
+          { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
+          { name: 'region', type: 'select', required: true, label: 'Region',
+            options: ['ewr1', 'sjc1', 'ams1'] },
+          { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-server'
+      },
+
+      [UnifiedStorage.PROVIDERS.OVHCLOUD]: {
+        name: 'OVHcloud Object Storage',
+        fields: [
+          { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
+          { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
+          { name: 'region', type: 'select', required: true, label: 'Region',
+            options: ['gra', 'sbg', 'bhs', 'waw'] },
+          { name: 'bucket', type: 'text', required: true, label: 'Container Name' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-cloud'
+      },
+
+      [UnifiedStorage.PROVIDERS.ALIBABA_OSS]: {
+        name: 'Alibaba Cloud OSS',
+        fields: [
+          { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key ID' },
+          { name: 'secretAccessKey', type: 'password', required: true, label: 'Access Key Secret' },
+          { name: 'region', type: 'select', required: true, label: 'Region',
+            options: ['cn-hangzhou', 'cn-shanghai', 'cn-beijing', 'us-west-1', 'ap-southeast-1'] },
+          { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-cloud'
+      },
+
+      [UnifiedStorage.PROVIDERS.BACKBLAZE_B2]: {
+        name: 'Backblaze B2',
+        fields: [
+          { name: 'accessKeyId', type: 'text', required: true, label: 'Key ID' },
+          { name: 'secretAccessKey', type: 'password', required: true, label: 'Application Key' },
+          { name: 'region', type: 'select', required: true, label: 'Region',
+            options: ['us-west-000', 'us-west-001', 'eu-central-003'] },
+          { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-archive'
+      },
+
+      [UnifiedStorage.PROVIDERS.WASABI]: {
+        name: 'Wasabi Hot Cloud Storage',
+        fields: [
+          { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
+          { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
+          { name: 'region', type: 'select', required: true, label: 'Region',
+            options: ['us-east-1', 'us-east-2', 'us-west-1', 'eu-central-1', 'ap-northeast-1'] },
+          { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-fire'
+      },
+
+      [UnifiedStorage.PROVIDERS.LINODE]: {
+        name: 'Linode Object Storage',
+        fields: [
+          { name: 'accessKeyId', type: 'text', required: true, label: 'Access Key' },
+          { name: 'secretAccessKey', type: 'password', required: true, label: 'Secret Key' },
+          { name: 'region', type: 'select', required: true, label: 'Region',
+            options: ['us-east-1', 'eu-central-1', 'ap-south-1'] },
+          { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-server'
+      },
+
+      [UnifiedStorage.PROVIDERS.CUBBIT]: {
+        name: 'Cubbit DS3',
+        fields: [
+          { name: 'apiKey', type: 'password', required: true, label: 'API Key' },
+          { name: 'bucketName', type: 'text', required: true, label: 'Bucket Name' },
+          { name: 'baseUrl', type: 'text', required: false, label: 'Base URL',
+            placeholder: 'https://api.cubbit.io' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-cube'
+      },
+
+      // Web3 Storage Providers
+      [UnifiedStorage.PROVIDERS.IPFS]: {
+        name: 'IPFS',
+        fields: [
+          { name: 'gateway', type: 'text', required: false, label: 'IPFS Gateway',
+            placeholder: 'https://ipfs.io/ipfs/' },
+          { name: 'pinataApiKey', type: 'text', required: false, label: 'Pinata API Key' },
+          { name: 'pinataSecretKey', type: 'password', required: false, label: 'Pinata Secret Key' },
+          { name: 'useLocalNode', type: 'checkbox', required: false, label: 'Use Local IPFS Node' },
+          { name: 'localNodeUrl', type: 'text', required: false, label: 'Local Node URL',
+            placeholder: 'http://localhost:5001' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-network-wired'
+      },
+
+      [UnifiedStorage.PROVIDERS.STORJ]: {
+        name: 'Storj DCS',
+        fields: [
+          { name: 'accessGrant', type: 'textarea', required: false, label: 'Access Grant' },
+          { name: 'apiKey', type: 'text', required: false, label: 'API Key' },
+          { name: 'passphrase', type: 'password', required: false, label: 'Passphrase' },
+          { name: 'satellite', type: 'text', required: false, label: 'Satellite',
+            placeholder: 'us1.storj.io:7777' },
+          { name: 'bucket', type: 'text', required: true, label: 'Bucket Name' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-satellite'
+      },
+
+      [UnifiedStorage.PROVIDERS.ARWEAVE]: {
+        name: 'Arweave',
+        fields: [
+          { name: 'wallet', type: 'textarea', required: true, label: 'Wallet JSON' },
+          { name: 'gateway', type: 'text', required: false, label: 'Gateway URL',
+            placeholder: 'https://arweave.net' },
+          { name: 'bundlrNode', type: 'text', required: false, label: 'Bundlr Node',
+            placeholder: 'https://node1.bundlr.network' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-infinity'
+      },
+
+      [UnifiedStorage.PROVIDERS.FILECOIN]: {
+        name: 'Filecoin',
+        fields: [
+          { name: 'web3StorageToken', type: 'password', required: false, label: 'Web3.Storage Token' },
+          { name: 'lighthouseApiKey', type: 'password', required: false, label: 'Lighthouse API Key' },
+          { name: 'provider', type: 'select', required: true, label: 'Provider',
+            options: ['web3.storage', 'lighthouse'] }
+        ],
+        testConnection: true,
+        icon: 'fas fa-coins'
+      },
+
+      [UnifiedStorage.PROVIDERS.SIA]: {
+        name: 'Sia Skynet',
+        fields: [
+          { name: 'skynetPortal', type: 'text', required: false, label: 'Skynet Portal',
+            placeholder: 'https://siasky.net' },
+          { name: 'apiUrl', type: 'text', required: false, label: 'Local API URL',
+            placeholder: 'http://localhost:9980' },
+          { name: 'apiPassword', type: 'password', required: false, label: 'API Password' }
+        ],
+        testConnection: true,
+        icon: 'fas fa-cloud-upload-alt'
+      },
+
+      [UnifiedStorage.PROVIDERS.SWARM]: {
+        name: 'Ethereum Swarm',
+        fields: [
+          { name: 'gateway', type: 'text', required: false, label: 'Swarm Gateway',
+            placeholder: 'https://gateway.ethswarm.org' },
+          { name: 'beeApiUrl', type: 'text', required: false, label: 'Bee API URL',
+            placeholder: 'http://localhost:1633' }
+        ],
+        testConnection: true,
+        icon: 'fab fa-ethereum'
+      }
+    };
+    return true;
+  }
 
   // Encryption utilities
   async function generateEncryptionKey() {
@@ -280,6 +296,16 @@ const StorageConfigManager = (function() {
    * Initialize the configuration manager
    */
   async function initialize() {
+    console.log('[StorageConfigManager] initialize() called');
+    // Populate DEFAULT_CONFIGS now that we expect UnifiedStorage to be available
+    if (!_populateDefaultConfigs()) {
+        // If UnifiedStorage.PROVIDERS was not available, _populateDefaultConfigs would have logged an error.
+        // We should throw or handle this critical failure.
+        const errMessage = '[StorageConfigManager] Failed to initialize: Could not populate default provider configurations due to missing UnifiedStorage.PROVIDERS.';
+        console.error(errMessage);
+        throw new Error(errMessage);
+    }
+
     try {
       // Try to load existing encryption key
       const storedKey = localStorage.getItem(ENCRYPTION_KEY_STORAGE);
@@ -477,4 +503,6 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = StorageConfigManager;
 } else if (typeof window !== 'undefined') {
   window.StorageConfigManager = StorageConfigManager;
+  console.log('[StorageConfigManager] Assigned to window.StorageConfigManager');
 }
+console.log('[StorageConfigManager] Script end');

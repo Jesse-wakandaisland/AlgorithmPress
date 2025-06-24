@@ -688,21 +688,15 @@ if (typeof window !== 'undefined') {
   window.CubbitStorage = CubbitStorage;
   // Add togglePanel for dock/module-framework integration
   window.CubbitStorage.togglePanel = function() {
-    // This is a placeholder for UI interaction, actual panel management might be elsewhere
-    console.log("CubbitStorage.togglePanel called");
-    const panelId = 'cubbit-storage-panel'; // Example panel ID
-    let panel = document.getElementById(panelId);
-    if (!panel) {
-      // Optionally, create the panel here or show a toast
-      if (typeof window.showToast === 'function') {
-        window.showToast('info', 'Cubbit Storage panel not implemented');
-      }
-      return;
-    }
-    if (panel.classList.contains('hidden')) {
-      panel.classList.remove('hidden');
+    // This panel should actually open the main Storage UI Manager modal
+    if (window.StorageUIManager && typeof window.StorageUIManager.showModal === 'function') {
+      console.log("CubbitStorage.togglePanel calling StorageUIManager.showModal()");
+      window.StorageUIManager.showModal();
     } else {
-      panel.classList.add('hidden');
+      console.warn("StorageUIManager or its showModal function is not available.");
+      if (typeof window.showToast === 'function') {
+        window.showToast('error', 'Storage Configuration UI is not available.');
+      }
     }
   };
 

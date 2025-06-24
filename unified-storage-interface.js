@@ -3,6 +3,7 @@
  * Supports multiple cloud storage providers with a consistent API
  * Production-ready with error handling, retry logic, and failover
  */
+console.log('[UnifiedStorage] Script start');
 
 const UnifiedStorage = (function() {
   'use strict';
@@ -562,4 +563,6 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = UnifiedStorage;
 } else if (typeof window !== 'undefined') {
   window.UnifiedStorage = UnifiedStorage;
+  console.log('[UnifiedStorage] Assigned to window.UnifiedStorage');
 }
+console.log('[UnifiedStorage] Script end');

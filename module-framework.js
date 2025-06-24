@@ -2,9 +2,11 @@
  * AlgorithmPress Module Integration Framework
  * Creates a standardized system for module registration, discovery, and integration
  */
+console.log('[ModuleFramework] Script start');
 
 const ModuleFramework = (function() {
   'use strict';
+  console.log('[ModuleFramework] IIFE start');
   
   // Private module registry
   const _modules = {};
@@ -834,3 +836,5 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Export module framework to global scope
 window.ModuleFramework = ModuleFramework;
+console.log('[ModuleFramework] Assigned to window.ModuleFramework');
+console.log('[ModuleFramework] Script end');

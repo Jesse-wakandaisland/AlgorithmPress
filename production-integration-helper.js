@@ -2,9 +2,11 @@
  * Production Integration Helper for AlgorithmPress
  * Ensures proper module loading, dependency resolution, and error handling
  */
+console.log('[ProductionIntegrationHelper] Script start');
 
 const ProductionIntegrationHelper = (function() {
   'use strict';
+  console.log('[ProductionIntegrationHelper] IIFE start');
 
   const INTEGRATION_CONFIG = {
     // Critical modules that must load first
@@ -418,3 +420,5 @@ if (document.readyState === 'loading') {
 
 // Export for global access
 window.ProductionIntegrationHelper = ProductionIntegrationHelper;
+console.log('[ProductionIntegrationHelper] Assigned to window.ProductionIntegrationHelper');
+console.log('[ProductionIntegrationHelper] Script end');
