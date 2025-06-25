@@ -70,6 +70,14 @@ const AlgorithmPressDock = (function() {
       panelVisible: false,
       initialize: initializeSettings,
       togglePanel: toggleSettingsPanel
+    },
+    'api-hub': { // New entry for API Hub
+      id: 'api-hub',
+      name: 'API Hub',
+      initialized: true, // Considered initialized as its own script handles its loading
+      panelVisible: false,
+      initialize: async () => { window.debugLog('[DockFunctionality] API Hub module (placeholder init)'); Promise.resolve(); }, // Minimal init
+      togglePanel: toggleApiHubPanel // New function to be created
     }
   };
   
@@ -79,7 +87,7 @@ const AlgorithmPressDock = (function() {
   function initialize() {
     if (state.initialized) return;
     
-    console.log('Initializing AlgorithmPress Dock...');
+    window.debugLog('[DockFunctionality] Initializing AlgorithmPress Dock...');
     
     // Create and inject the dock HTML
     createDockUI();
@@ -90,7 +98,7 @@ const AlgorithmPressDock = (function() {
     // Set initialization flag
     state.initialized = true;
     
-    console.log('AlgorithmPress Dock initialized');
+    window.debugLog('[DockFunctionality] AlgorithmPress Dock initialized');
     
     // Check if modules are already loaded and update status
     checkExistingModules();
@@ -222,6 +230,14 @@ const AlgorithmPressDock = (function() {
         toggleModule('settings');
       });
     }
+
+    // API Hub button
+    const apiHubBtn = document.getElementById('api-hub-dock-btn');
+    if (apiHubBtn) {
+      apiHubBtn.addEventListener('click', function() {
+        toggleModule('api-hub');
+      });
+    }
   }
   
   /**
@@ -335,7 +351,7 @@ const AlgorithmPressDock = (function() {
           voiceFeedback: true,
           visualFeedbackElement: 'voice-feedback'
         }).then(() => {
-          console.log('Voice Control System initialized');
+          window.debugLog('[DockFunctionality] Voice Control System initialized via dock.');
           resolve();
         }).catch(error => {
           reject(error);
@@ -356,12 +372,14 @@ const AlgorithmPressDock = (function() {
       if (window.VoiceControlSystem.isListening && window.VoiceControlSystem.isListening()) {
         window.VoiceControlSystem.stopListening();
         moduleRegistry['voice-control'].panelVisible = false;
+        window.debugLog('[DockFunctionality] Voice Control stopped via dock.');
       } else {
         window.VoiceControlSystem.startListening();
         moduleRegistry['voice-control'].panelVisible = true;
+        window.debugLog('[DockFunctionality] Voice Control started via dock.');
       }
     } catch (error) {
-      console.error('Error toggling Voice Control panel:', error);
+      console.error('[DockFunctionality] Error toggling Voice Control panel:', error); // Keep error
     }
   }
   
@@ -382,7 +400,7 @@ const AlgorithmPressDock = (function() {
         
         window.NexusGrid.initialize()
           .then(() => {
-            console.log('NexusGrid initialized');
+            window.debugLog('[DockFunctionality] NexusGrid initialized via dock.');
             resolve();
           })
           .catch(error => {
@@ -467,14 +485,14 @@ const AlgorithmPressDock = (function() {
         if (typeof window.NexusGridDemoSystem.initialize === 'function') {
           window.NexusGridDemoSystem.initialize()
             .then(() => {
-              console.log('Demonstration System initialized');
+              window.debugLog('[DockFunctionality] Demonstration System initialized via dock.');
               resolve();
             })
             .catch(error => {
               reject(error);
             });
         } else {
-          console.log('Demonstration System initialized (no init function)');
+          window.debugLog('[DockFunctionality] Demonstration System initialized (no explicit init function, or already prepped).');
           resolve();
         }
       } catch (error) {
@@ -563,7 +581,7 @@ const AlgorithmPressDock = (function() {
         // Create Implementation panel if not exists
         createImplementationPanel();
         
-        console.log('Implementation Example initialized');
+        window.debugLog('[DockFunctionality] Implementation Example initialized via dock.');
         resolve();
       } catch (error) {
         reject(error);
@@ -680,7 +698,7 @@ const AlgorithmPressDock = (function() {
         // Create Rainbow Indicator panel if not exists
         createRainbowIndicatorPanel();
         
-        console.log('Rainbow Indicator initialized');
+        window.debugLog('[DockFunctionality] Rainbow Indicator initialized via dock.');
         resolve();
       } catch (error) {
         reject(error);
@@ -831,7 +849,7 @@ const AlgorithmPressDock = (function() {
         // Create Cubbit Storage panel if not exists
         createCubbitStoragePanel();
         
-        console.log('Cubbit Storage initialized');
+        window.debugLog('[DockFunctionality] Cubbit Storage initialized via dock.');
         resolve();
       } catch (error) {
         reject(error);
@@ -987,7 +1005,7 @@ const AlgorithmPressDock = (function() {
         // Create Settings panel if not exists
         createSettingsPanel();
         
-        console.log('Settings initialized');
+        window.debugLog('[DockFunctionality] Settings initialized via dock.');
         resolve();
       } catch (error) {
         reject(error);
@@ -1305,6 +1323,47 @@ const AlgorithmPressDock = (function() {
     }
     
     updateDockButtonState('settings', moduleRegistry['settings'].panelVisible);
+  }
+
+  /**
+   * Toggle API Hub Panel
+   */
+  function toggleApiHubPanel() {
+    const panel = document.getElementById('api-hub-root');
+    if (!panel) {
+      console.error('API Hub root element (#api-hub-root) not found.');
+      showToast('error', 'API Hub UI element not found.');
+      return;
+    }
+
+    const module = moduleRegistry['api-hub'];
+    if (panel.style.display === 'none' || panel.style.display === '') {
+      // Hide all other system panels first
+      document.querySelectorAll('.system-panel').forEach(p => {
+        if (p.id !== 'api-hub-root') { // Ensure we don't hide api-hub-root if it was a system-panel
+            p.classList.add('hidden'); // Assuming system-panels use 'hidden' class
+        }
+      });
+      // Also, deactivate other dock buttons that manage .system-panel visibility
+      Object.keys(moduleRegistry).forEach(key => {
+        if (key !== 'api-hub' && moduleRegistry[key].panelVisible) {
+            const otherPanel = document.getElementById(`${key}-panel`);
+            if (otherPanel) otherPanel.classList.add('hidden');
+            moduleRegistry[key].panelVisible = false;
+            updateDockButtonState(key, false);
+        }
+      });
+
+
+      panel.style.display = 'block'; // Or 'flex' if that's how API Hub is structured internally
+      module.panelVisible = true;
+      showToast('info', 'API Hub opened.');
+    } else {
+      panel.style.display = 'none';
+      module.panelVisible = false;
+      showToast('info', 'API Hub closed.');
+    }
+    updateDockButtonState('api-hub', module.panelVisible);
   }
   
   /**
@@ -1810,6 +1869,7 @@ const AlgorithmPressDock = (function() {
     injectSystemPanelStyles();
     
     // Initialize dock
+    window.debugLog('[DockFunctionality] DOMContentLoaded, initializing dock system.');
     initialize();
   });
   

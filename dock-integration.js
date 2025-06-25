@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
    * Initialize the dock
    */
   function initDock() {
-    console.log('Initializing AlgorithmPress Dock...');
+    window.debugLog('[DockIntegration] Initializing AlgorithmPress Dock (integration script)...');
     
     // Inject dock HTML if not already present
     if (!document.getElementById('algorithm-press-dock')) {

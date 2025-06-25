@@ -33,7 +33,7 @@ const PHPWasmBuilder = (function() {
    * Initialize the builder application
    */
   function initialize() {
-    console.log('Initializing PHP-WASM Builder...');
+    window.debugLog('[PHPWasmBuilder] Initializing PHP-WASM Builder...');
     
     // Cache DOM elements
     cacheElements();
@@ -47,22 +47,22 @@ const PHPWasmBuilder = (function() {
     // Initialize PHP-WASM
     initPhpWasm()
       .then(() => {
-        console.log('PHP-WASM initialized successfully');
+        window.debugLog('[PHPWasmBuilder] PHP-WASM initialized successfully');
         updateStatus('PHP-WASM', 'ready');
       })
       .catch(error => {
-        console.error('Failed to initialize PHP-WASM:', error);
+        console.error('[PHPWasmBuilder] Failed to initialize PHP-WASM:', error); // Keep critical error
         updateStatus('PHP-WASM', 'error', error);
       });
     
     // Initialize storage
     initStorage()
       .then(() => {
-        console.log('Storage initialized successfully');
+        window.debugLog('[PHPWasmBuilder] Storage initialized successfully');
         updateStatus('Storage', 'ready');
       })
       .catch(error => {
-        console.error('Failed to initialize storage:', error);
+        console.error('[PHPWasmBuilder] Failed to initialize storage:', error); // Keep critical error
         updateStatus('Storage', 'error', error);
       });
     
@@ -75,7 +75,7 @@ const PHPWasmBuilder = (function() {
     // Update status
     state.initialized = true;
     updateStatus('Builder', 'ready');
-    console.log('PHP-WASM Builder initialized');
+    window.debugLog('[PHPWasmBuilder] PHP-WASM Builder initialized');
   }
   
   /**
@@ -178,22 +178,22 @@ const PHPWasmBuilder = (function() {
 
             const activeSettings = await StorageConfigManager.getActiveStorageSettings();
             if (activeSettings) {
-                console.log(`PHPWasmBuilder: Storage configured with ${activeSettings.providerType}.`);
+                window.debugLog(`[PHPWasmBuilder] Storage configured with ${activeSettings.providerType}.`);
                 updateStoragePreferenceUI(activeSettings.providerType, activeSettings.config);
             } else {
-                console.log('PHPWasmBuilder: No active storage from StorageConfigManager, defaulting UI to localStorage.');
+                window.debugLog('[PHPWasmBuilder] No active storage from StorageConfigManager, defaulting UI to localStorage.');
                 updateStoragePreferenceUI('localStorage', {}); // Default UI to localStorage
             }
             state.storageReady = true; // Assume UnifiedStorage is ready or has a fallback
             return Promise.resolve();
         } catch (error) {
-            console.error('PHPWasmBuilder: Error getting active storage settings:', error);
+            console.error('[PHPWasmBuilder] Error getting active storage settings:', error); // Keep critical error
             updateStoragePreferenceUI('localStorage', {}); // Fallback UI
             state.storageReady = true; // Still proceed, UnifiedStorage might have its own fallback
             return Promise.resolve();
         }
     } else {
-      console.warn('UnifiedStorage or StorageConfigManager not found. Storage operations might fail.');
+      console.warn('[PHPWasmBuilder] UnifiedStorage or StorageConfigManager not found. Storage operations might fail.'); // Keep warning
       state.storageReady = false;
       return Promise.reject(new Error('Core storage modules not available.'));
     }
@@ -257,7 +257,9 @@ const PHPWasmBuilder = (function() {
             await window.ProductionIntegrationHelper.reinitializeStorage();
         } else {
              // If direct re-init is not safe/available, user might need to reload or it's handled by production-init on next load.
-            console.warn("Consider implementing ProductionIntegrationHelper.reinitializeStorage() for immediate effect or rely on next load.");
+            const reinitMsg = "[PHPWasmBuilder] Consider implementing ProductionIntegrationHelper.reinitializeStorage() for immediate effect or rely on next load.";
+            window.debugLog(reinitMsg);
+            if(!PRODUCTION_CONFIG.debug) console.warn(reinitMsg); // Show warning if not in debug
         }
 
         state.storageReady = true; // Assuming it will be ready
@@ -266,7 +268,7 @@ const PHPWasmBuilder = (function() {
 
     } catch (error) {
         showToast('error', `Failed to configure ${selectedProviderType}: ${error.message}`);
-        console.error(`Configuration error for ${selectedProviderType}:`, error);
+        console.error(`[PHPWasmBuilder] Configuration error for ${selectedProviderType}:`, error); // Keep critical error
     }
   }
   
@@ -409,7 +411,7 @@ const PHPWasmBuilder = (function() {
           addComponent(parsedData.id);
         }
       } catch (error) {
-        console.error('Failed to parse drop data:', error);
+        console.error('[PHPWasmBuilder] Failed to parse drop data:', error); // Keep error
       }
     });
   }
@@ -603,10 +605,10 @@ const PHPWasmBuilder = (function() {
         .then(result => {
           saveProjectReference(state.currentProject); // Keep local reference for listing
           showToast('success', `Project saved via ${result.provider}`);
-          console.log('Project saved successfully:', result);
+          window.debugLog('[PHPWasmBuilder] Project saved successfully via UnifiedStorage:', result);
         })
         .catch(error => {
-          console.error('Failed to save project via UnifiedStorage:', error);
+          console.error('[PHPWasmBuilder] Failed to save project via UnifiedStorage:', error); // Keep critical error
           showToast('error', 'Failed to save project: ' + error.message);
           // Optional: Attempt a direct localStorage save as an emergency fallback?
           // try {
@@ -619,14 +621,14 @@ const PHPWasmBuilder = (function() {
         });
     } else {
       showToast('error', 'Storage system not ready. Cannot save project.');
-      console.error('UnifiedStorage not available or not ready during saveCurrentProject.');
+      console.error('[PHPWasmBuilder] UnifiedStorage not available or not ready during saveCurrentProject.'); // Keep critical error
       // Fallback to direct localStorage if critical, though ideally UnifiedStorage has its own localStorage fallback.
       try {
         localStorage.setItem('project_' + state.currentProject.id, JSON.stringify(state.currentProject));
         saveProjectReference(state.currentProject);
         showToast('warning', 'Project saved to local browser storage (emergency fallback).');
       } catch (e) {
-         showToast('error', 'Critical: Failed to save project to any storage.');
+         showToast('error', 'Critical: Failed to save project to any storage.'); // Keep critical error
       }
     }
   }
@@ -666,7 +668,7 @@ const PHPWasmBuilder = (function() {
       // Save updated list
       localStorage.setItem('project_list', JSON.stringify(projectList));
     } catch (error) {
-      console.error('Failed to save project reference:', error);
+      console.error('[PHPWasmBuilder] Failed to save project reference:', error); // Keep error
     }
   }
   
@@ -687,7 +689,10 @@ const PHPWasmBuilder = (function() {
         updateProjectUI();
         showToast('info', 'Project loaded: ' + project.name);
       } else {
-        console.warn(`Last project ID ${lastProjectId} not found in configured storage. Creating new project.`);
+        const warnMsg = `[PHPWasmBuilder] Last project ID ${lastProjectId} not found in configured storage. Creating new project.`;
+        window.debugLog(warnMsg);
+        if(!PRODUCTION_CONFIG.debug) console.warn(warnMsg); // Keep important warning
+
         localStorage.removeItem('last_project_id'); // Clear invalid last project ID
         // Also remove from project_list if it exists there with this ID
         const projectList = JSON.parse(localStorage.getItem('project_list') || '[]');
@@ -696,7 +701,7 @@ const PHPWasmBuilder = (function() {
         createNewProject();
       }
     } catch (error) {
-      console.error('Failed to load last project:', error);
+      console.error('[PHPWasmBuilder] Failed to load last project:', error); // Keep critical error
       showToast('error', 'Failed to load last project: ' + error.message + ". Creating new project.");
       localStorage.removeItem('last_project_id');
       createNewProject();
@@ -775,11 +780,14 @@ const PHPWasmBuilder = (function() {
   async function loadProject(projectId) {
     if (!window.UnifiedStorage || !state.storageReady) {
       showToast('error', 'Storage system not ready.');
-      console.error('UnifiedStorage not available or not ready during loadProject.');
+      console.error('[PHPWasmBuilder] UnifiedStorage not available or not ready during loadProject.'); // Keep critical error
       // Try direct localStorage as an emergency fallback ONLY if UnifiedStorage itself isn't attempting this.
       try {
           const projectJson = localStorage.getItem('project_' + projectId);
-          if (projectJson) return JSON.parse(projectJson);
+          if (projectJson) {
+            window.debugLog(`[PHPWasmBuilder] Loaded project ${projectId} from localStorage (emergency fallback).`);
+            return JSON.parse(projectJson);
+          }
       } catch(e) { /* ignore */ }
       return null;
     }
@@ -788,19 +796,23 @@ const PHPWasmBuilder = (function() {
     try {
       const projectData = await UnifiedStorage.load(projectKey);
       if (projectData) {
+        window.debugLog(`[PHPWasmBuilder] Project ${projectId} loaded via UnifiedStorage.`);
         // Ensure it's an object, as UnifiedStorage might return string/blob from some providers
         return typeof projectData === 'string' ? JSON.parse(projectData) : projectData;
       }
-      console.warn(`Project ${projectId} not found via UnifiedStorage.`);
+      const warnMsg = `[PHPWasmBuilder] Project ${projectId} not found via UnifiedStorage.`;
+      window.debugLog(warnMsg);
+      if(!PRODUCTION_CONFIG.debug) console.warn(warnMsg); // Keep important warning
       return null;
     } catch (error) {
-      console.error(`Failed to load project ${projectId} via UnifiedStorage:`, error);
+      console.error(`[PHPWasmBuilder] Failed to load project ${projectId} via UnifiedStorage:`, error); // Keep critical error
       showToast('error', `Error loading project: ${error.message}`);
       // Attempt to load from local storage as a last resort if UnifiedStorage fails badly
       try {
         const projectJson = localStorage.getItem(projectKey);
         if (projectJson) {
           showToast('warning', 'Loaded project from local browser storage (fallback).');
+          window.debugLog(`[PHPWasmBuilder] Loaded project ${projectId} from localStorage (UnifiedStorage error fallback).`);
           return JSON.parse(projectJson);
         }
       } catch (localError) {
@@ -960,7 +972,7 @@ const PHPWasmBuilder = (function() {
     
     const componentTemplate = availableComponents.find(c => c.id === componentId);
     if (!componentTemplate) {
-      console.error('Component not found:', componentId);
+      console.error('[PHPWasmBuilder] Component template not found:', componentId); // Keep error
       return;
     }
     
@@ -1357,7 +1369,7 @@ const PHPWasmBuilder = (function() {
     const checkPhpWasm = () => {
       if (iframe.contentWindow.PHP) {
         // PHP-WASM is loaded
-        console.log('PHP-WASM loaded in preview');
+        window.debugLog('[PHPWasmBuilder] PHP-WASM loaded in preview iframe.');
       } else {
         // Check again in 100ms
         setTimeout(checkPhpWasm, 100);
@@ -1440,7 +1452,7 @@ const PHPWasmBuilder = (function() {
    * Update status display
    */
   function updateStatus(component, status, error = null) {
-    console.log(`${component} status: ${status}`);
+    window.debugLog(`[PHPWasmBuilder] Status Update: ${component} - ${status}${error ? ' - Error: ' + error.message : ''}`);
     
     // TODO: Implement status display in UI
   }

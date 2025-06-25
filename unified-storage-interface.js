@@ -1,12 +1,14 @@
 /**
+/**
  * Unified Storage Interface for AlgorithmPress
  * Supports multiple cloud storage providers with a consistent API
  * Production-ready with error handling, retry logic, and failover
  */
-console.log('[UnifiedStorage] Script start');
+// console.log('[UnifiedStorage] Script execution start.'); // Replaced or removed
 
 const UnifiedStorage = (function() {
   'use strict';
+  // console.log('[UnifiedStorage] IIFE start.'); // Replaced or removed
 
   // Storage provider types
   const PROVIDERS = {
@@ -95,6 +97,7 @@ const UnifiedStorage = (function() {
 
         // Always ensure localStorage is available as fallback
         if (!activeProviders.has(PROVIDERS.LOCAL)) {
+          window.debugLog('[UnifiedStorage] Initializing localStorage as a guaranteed fallback.');
           await initializeProvider(PROVIDERS.LOCAL, {});
         }
 
@@ -103,9 +106,10 @@ const UnifiedStorage = (function() {
           fallbackProviders,
           activeProviders: Array.from(activeProviders.keys())
         });
-
+        window.debugLog(`[UnifiedStorage] Initialization successful. Primary: ${primaryProvider}`);
         resolve(true);
       } catch (error) {
+        console.error('[UnifiedStorage] Initialization failed:', error); // Keep critical error
         notifyListeners('error', { error, context: 'initialization' });
         reject(error);
       }
@@ -184,12 +188,13 @@ const UnifiedStorage = (function() {
       if (provider) {
         providerConfigs.set(providerType, config);
         activeProviders.set(providerType, provider);
+        window.debugLog(`[UnifiedStorage] Provider initialized: ${providerType}`);
         return true;
       }
-
+      window.debugLog(`[UnifiedStorage] Provider ${providerType} did not initialize (no provider instance returned).`);
       return false;
     } catch (error) {
-      console.error(`Failed to initialize provider ${providerType}:`, error);
+      console.error(`Failed to initialize provider ${providerType}:`, error); // Keep critical error
       throw error;
     }
   }
@@ -561,8 +566,15 @@ const UnifiedStorage = (function() {
 // Export for different module systems
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = UnifiedStorage;
+  // window.debugLog('[UnifiedStorage] Exported for module systems.'); // Cannot use window.debugLog here
 } else if (typeof window !== 'undefined') {
   window.UnifiedStorage = UnifiedStorage;
-  console.log('[UnifiedStorage] Assigned to window.UnifiedStorage');
+  // Use a conditional console.log here as debugLog might not be defined when this script runs if PRODUCTION_CONFIG.debug is false
+  if (typeof window.debugLog === 'function') {
+    window.debugLog('[UnifiedStorage] Assigned to window.UnifiedStorage.');
+  } else if (console && console.log && (window.PRODUCTION_CONFIG ? window.PRODUCTION_CONFIG.debug : false) ) { // Fallback if debugLog not yet set
+    console.log('[UnifiedStorage] Assigned to window.UnifiedStorage (debugLog not ready).');
+  }
 }
-console.log('[UnifiedStorage] Script end');
+// window.debugLog('[UnifiedStorage] IIFE end.');
+// window.debugLog('[UnifiedStorage] Script execution end.');

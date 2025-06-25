@@ -1,11 +1,13 @@
 /**
+/**
  * Storage Configuration Manager for AlgorithmPress
  * Manages storage provider configurations with encryption and validation
  */
-console.log('[StorageConfigManager] Script start');
+// console.log('[StorageConfigManager] Script execution start.'); // Replaced with debugLog or removed
 
 const StorageConfigManager = (function() {
   'use strict';
+  // console.log('[StorageConfigManager] IIFE start.'); // Replaced with debugLog or removed
 
   // Configuration storage key
   const CONFIG_STORAGE_KEY = 'algorithmpress_storage_config'; // Stores all available provider configs
@@ -20,12 +22,12 @@ const StorageConfigManager = (function() {
    * Must be called after UnifiedStorage is available.
    */
   function _populateDefaultConfigs() {
+    // This check is critical, so console.error is appropriate if it fails.
     if (typeof UnifiedStorage === 'undefined' || !UnifiedStorage.PROVIDERS) {
       console.error('[StorageConfigManager] CRITICAL: UnifiedStorage.PROVIDERS not available when trying to populate default configs. This indicates a severe loading order issue.');
-      // DEFAULT_CONFIGS will remain empty, likely causing issues later, but prevents immediate script crash here.
-      // The main initialize() should probably fail or throw if this happens.
       return false;
     }
+    // window.debugLog('[StorageConfigManager] _populateDefaultConfigs: UnifiedStorage.PROVIDERS is available.');
     DEFAULT_CONFIGS = {
       [UnifiedStorage.PROVIDERS.AWS_S3]: {
         name: 'Amazon S3',
@@ -296,15 +298,20 @@ const StorageConfigManager = (function() {
    * Initialize the configuration manager
    */
   async function initialize() {
-    console.log('[StorageConfigManager] initialize() called');
+    window.debugLog('[StorageConfigManager] initialize() called.');
+    // window.debugLog('[StorageConfigManager] Checking UnifiedStorage availability before populating defaults...'); // Verbose
+    if (typeof UnifiedStorage === 'undefined' || !UnifiedStorage.PROVIDERS) {
+      // This is a critical failure point checked by _populateDefaultConfigs, which will throw.
+      // console.error is already in _populateDefaultConfigs.
+    }
+
     // Populate DEFAULT_CONFIGS now that we expect UnifiedStorage to be available
     if (!_populateDefaultConfigs()) {
-        // If UnifiedStorage.PROVIDERS was not available, _populateDefaultConfigs would have logged an error.
-        // We should throw or handle this critical failure.
-        const errMessage = '[StorageConfigManager] Failed to initialize: Could not populate default provider configurations due to missing UnifiedStorage.PROVIDERS.';
-        console.error(errMessage);
+        const errMessage = '[StorageConfigManager] Failed to initialize: Could not populate default provider configurations due to missing UnifiedStorage.PROVIDERS (checked in _populateDefaultConfigs).';
+        console.error(errMessage); // Keep critical error
         throw new Error(errMessage);
     }
+    window.debugLog('[StorageConfigManager] DEFAULT_CONFIGS populated.');
 
     try {
       // Try to load existing encryption key
@@ -328,7 +335,7 @@ const StorageConfigManager = (function() {
       // Load configurations
       await loadConfigurations();
     } catch (error) {
-      console.error('Failed to initialize configuration manager:', error);
+      console.error('Failed to initialize configuration manager:', error); // Keep critical error
       throw error;
     }
   }
@@ -347,9 +354,12 @@ const StorageConfigManager = (function() {
         Object.entries(decryptedData).forEach(([provider, config]) => {
           configurations.set(provider, config);
         });
+        window.debugLog('[StorageConfigManager] Configurations loaded from localStorage.');
+      } else {
+        window.debugLog('[StorageConfigManager] No stored configurations found.');
       }
     } catch (error) {
-      console.error('Failed to load configurations:', error);
+      console.error('Failed to load configurations:', error); // Keep error for data integrity issues
       configurations.clear();
     }
   }
@@ -362,8 +372,9 @@ const StorageConfigManager = (function() {
       const configData = Object.fromEntries(configurations);
       const encryptedData = await encryptData(configData, encryptionKey);
       localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(encryptedData));
+      window.debugLog('[StorageConfigManager] Configurations saved to localStorage.');
     } catch (error) {
-      console.error('Failed to save configurations:', error);
+      console.error('Failed to save configurations:', error); // Keep error for data integrity issues
       throw error;
     }
   }
@@ -384,6 +395,7 @@ const StorageConfigManager = (function() {
     setConfig: async (provider, config) => {
       configurations.set(provider, config);
       await saveConfigurations();
+      window.debugLog(`[StorageConfigManager] Config set for provider: ${provider}`);
     },
     
     /**
@@ -392,6 +404,7 @@ const StorageConfigManager = (function() {
     removeConfig: async (provider) => {
       configurations.delete(provider);
       await saveConfigurations();
+      window.debugLog(`[StorageConfigManager] Config removed for provider: ${provider}`);
     },
     
     /**
@@ -454,9 +467,10 @@ const StorageConfigManager = (function() {
           configurations.set(provider, config);
         });
         await saveConfigurations();
+        window.debugLog('[StorageConfigManager] Configurations imported successfully.');
         return true;
       } catch (error) {
-        console.error('Failed to import configurations:', error);
+        console.error('Failed to import configurations:', error); // Keep error
         return false;
       }
     },
@@ -469,9 +483,9 @@ const StorageConfigManager = (function() {
         const settingsToSave = { providerType, config: providerConfig };
         const encryptedSettings = await encryptData(settingsToSave, encryptionKey);
         localStorage.setItem(ACTIVE_STORAGE_SETTINGS_KEY, JSON.stringify(encryptedSettings));
-        console.log(`Active storage set to: ${providerType}`);
+        window.debugLog(`[StorageConfigManager] Active storage set to: ${providerType}`);
       } catch (error) {
-        console.error('Failed to set active storage settings:', error);
+        console.error('Failed to set active storage settings:', error); // Keep error
         throw error;
       }
     },
@@ -486,11 +500,13 @@ const StorageConfigManager = (function() {
         if (storedSettings) {
           const encryptedData = JSON.parse(storedSettings);
           const decryptedSettings = await decryptData(encryptedData, encryptionKey);
+          window.debugLog('[StorageConfigManager] Active storage settings retrieved.');
           return decryptedSettings; // Should be { providerType, config }
         }
+        window.debugLog('[StorageConfigManager] No active storage settings found.');
         return null; // No active setting stored
       } catch (error) {
-        console.error('Failed to get active storage settings:', error);
+        console.error('Failed to get active storage settings:', error); // Keep error
         // Fallback or default if necessary, e.g., return { providerType: UnifiedStorage.PROVIDERS.LOCAL, config: {} };
         return null;
       }
@@ -501,8 +517,10 @@ const StorageConfigManager = (function() {
 // Export for different module systems
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = StorageConfigManager;
+  // window.debugLog('[StorageConfigManager] Exported for module systems.'); // Cannot use window.debugLog here
 } else if (typeof window !== 'undefined') {
   window.StorageConfigManager = StorageConfigManager;
-  console.log('[StorageConfigManager] Assigned to window.StorageConfigManager');
+  window.debugLog('[StorageConfigManager] Assigned to window.StorageConfigManager.');
 }
-console.log('[StorageConfigManager] Script end');
+// window.debugLog('[StorageConfigManager] IIFE end.'); // Logging IIFE end might be too verbose.
+// window.debugLog('[StorageConfigManager] Script execution end.');

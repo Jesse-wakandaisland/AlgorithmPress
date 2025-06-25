@@ -27,14 +27,26 @@ const ComprehensiveModuleTester = (function() {
     'UnifiedStorage': {
       type: 'object',
       required: ['initialize', 'save', 'load', 'remove', 'list', 'PROVIDERS'],
-      optional: ['addEventListener', 'removeEventListener', 'getStats', 'updateSettings']
+      optional: [
+        'addEventListener', 'removeEventListener', 'getStats', 'updateSettings',
+        'initializeProvider', 'initializeLocalStorage', 'initializeCubbitStorage',
+        'initializeAwsS3Storage', 'initializeGoogleCloudStorage', 'initializeAzureBlobStorage',
+        'initializeDigitalOceanStorage', 'initializeVultrStorage', 'initializeOvhCloudStorage',
+        'initializeAlibabaOssStorage', 'initializeBackblazeB2Storage', 'initializeWasabiStorage',
+        'initializeLinodeStorage', 'initializeIpfsStorage', 'initializeStorjStorage',
+        'initializeArweaveStorage', 'initializeFilecoinStorage', 'initializeSiaStorage', 'initializeSwarmStorage'
+      ]
     },
     'StorageConfigManager': {
       type: 'object',
       required: ['initialize', 'getConfig', 'setConfig', 'validateConfig'],
-      optional: ['removeConfig', 'getConfiguredProviders', 'testConnection']
+      optional: [
+        'removeConfig', 'getConfiguredProviders', 'testConnection',
+        'exportConfigurations', 'importConfigurations',
+        'setActiveStorageSettings', 'getActiveStorageSettings', 'DEFAULT_CONFIGS'
+      ]
     },
-    'StorageUIManager': {
+    'StorageUIManager': { // Assuming this file exists: storage-ui-manager.js
       type: 'object',
       required: ['initialize', 'showModal', 'hideModal'],
       optional: ['isInitialized']
@@ -76,8 +88,8 @@ const ComprehensiveModuleTester = (function() {
     },
     'ModuleFramework': {
       type: 'object',
-      required: ['initialize'],
-      optional: ['registerModule', 'loadModule', 'unloadModule']
+      required: ['initialize', 'registerModule', 'getModule'],
+      optional: ['loadModule', 'unloadModule', 'getModules', 'on', 'off', 'emit', 'getModuleStatus', 'setModuleStatus', 'MODULE_STATUS']
     },
     'PublishingSystem': {
       type: 'object',
@@ -94,10 +106,10 @@ const ComprehensiveModuleTester = (function() {
       required: ['initialize', 'runComprehensiveCheck'],
       optional: ['applyGlobalFixes', 'applyModuleFixes', 'tryAutoFix']
     },
-    'ApiGateway': { // Corrected casing
+    'ApiGateway': { // Corrected casing to PascalCase
       type: 'object',
-      required: ['initialize', 'registerApi', 'call'], // Corrected methods
-      optional: ['unregisterApi', 'getHistory', 'clearHistory', 'getApis'] // Added more methods
+      required: ['initialize', 'registerApi', 'call'],
+      optional: ['unregisterApi', 'getHistory', 'clearHistory', 'getApis']
     },
     'PluginSystemModule': {
       type: 'object',
@@ -112,18 +124,20 @@ const ComprehensiveModuleTester = (function() {
     'PHPWasmIntegration': {
       type: 'object',
       required: ['initialize', 'executeCode', 'createFile', 'readFile'],
-      optional: ['executeFile', 'createDirectory', 'listFiles', 'reset', 'isInitialized']
+      optional: ['executeFile', 'createDirectory', 'listFiles', 'reset', 'isInitialized', 'getPhpVersion', 'setPhpVersion', 'loadExtension', 'getLoadedExtensions']
     },
     'PHPWasmBuilder': {
       type: 'object',
       required: ['initialize', 'createNewProject', 'saveCurrentProject', 'loadProject'],
-      optional: ['exportProject', 'showPreview', 'addComponent', 'getState']
+      optional: ['exportProject', 'showPreview', 'addComponent', 'getState', 'setTheme', 'undo', 'redo', 'getProjectData', 'loadComponents']
     },
     'PHPWasmExporter': {
       type: 'object',
       required: ['initialize', 'exportProject'],
       optional: ['deployProject', 'EXPORT_FORMATS', 'DEPLOYMENT_TARGETS']
-    }
+    },
+    // ProductionInitialization exposes getProductionStatus
+    // This is tested via globalFunctionTests as 'getProductionStatus'
   };
 
   // DOM element tests
@@ -155,7 +169,8 @@ const ComprehensiveModuleTester = (function() {
     'initializeArweaveStorage',
     'initializeFilecoinStorage',
     'initializeSiaStorage',
-    'initializeSwarmStorage'
+    'initializeSwarmStorage',
+    'getProductionStatus' // Added from ProductionInitialization
   ];
 
   /**

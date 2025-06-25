@@ -1,12 +1,14 @@
 /**
  * AlgorithmPress Module Integration Framework
+/**
+ * AlgorithmPress Module Integration Framework
  * Creates a standardized system for module registration, discovery, and integration
  */
-console.log('[ModuleFramework] Script start');
+// console.log('[ModuleFramework] Script start'); // Removed
 
 const ModuleFramework = (function() {
   'use strict';
-  console.log('[ModuleFramework] IIFE start');
+  // console.log('[ModuleFramework] IIFE start'); // Removed
   
   // Private module registry
   const _modules = {};
@@ -64,7 +66,7 @@ const ModuleFramework = (function() {
           try {
             callback(data);
           } catch (error) {
-            console.error(`Error in event handler for ${event}:`, error);
+            console.error(`[ModuleFramework] Error in event handler for ${event}:`, error); // Keep critical error
           }
         });
       },
@@ -88,13 +90,16 @@ const ModuleFramework = (function() {
   function registerModule(moduleConfig) {
     // Validate module configuration
     if (!moduleConfig || !moduleConfig.id || !moduleConfig.name) {
-      console.error('Invalid module configuration', moduleConfig);
+      console.error('[ModuleFramework] Invalid module configuration:', moduleConfig); // Keep critical error
       return false;
     }
     
     // Check if module is already registered
     if (_modules[moduleConfig.id]) {
-      console.warn(`Module ${moduleConfig.id} is already registered`);
+      const warnMsg = `[ModuleFramework] Module ${moduleConfig.id} is already registered. Skipping.`;
+      window.debugLog(warnMsg);
+      // Potentially keep as a console.warn if this indicates a problem in non-debug scenarios.
+      if (PRODUCTION_CONFIG && !PRODUCTION_CONFIG.debug) console.warn(warnMsg);
       return false;
     }
     
@@ -121,7 +126,7 @@ const ModuleFramework = (function() {
     // Register module
     _modules[module.id] = module;
     
-    window.debugLog(`Module ${module.name} (${module.id}) registered with framework`);
+    window.debugLog(`[ModuleFramework] Module ${module.name} (${module.id}) registered.`);
     
     // Publish registration event
     _eventBus.publish('module:registered', {
@@ -243,7 +248,7 @@ const ModuleFramework = (function() {
             error
           });
           
-          console.error(`Failed to load module ${module.name} (${moduleId}):`, error);
+          console.error(`[ModuleFramework] Failed to load module ${module.name} (${moduleId}):`, error); // Keep critical error
           
           reject(error);
         });
@@ -262,9 +267,13 @@ const ModuleFramework = (function() {
         const script = document.createElement('script');
         script.src = url;
         script.async = true;
-        // TODO: For production, implement Subresource Integrity (SRI) here
-        // e.g., script.integrity = "sha384-hashValue"; script.crossOrigin = "anonymous";
+        // TODO: For production, implement Subresource Integrity (SRI) here.
         // This requires knowing the hash of the script content beforehand.
+        // If module URLs are fixed and known at build time, their hashes could be
+        // stored (e.g., in module registration data or a separate manifest) and applied here.
+        // Example: if (module.sriHash) { script.integrity = module.sriHash; script.crossOrigin = "anonymous"; }
+        // If URLs are fully dynamic or user-provided, SRI is not practically enforceable here
+        // without a trusted external mechanism to verify content and provide hashes.
         
         script.onload = function() {
           // Ensure the module is actually available if it's expected to register itself globally
@@ -327,12 +336,12 @@ const ModuleFramework = (function() {
     const module = _modules[moduleId];
     
     if (!module) {
-      console.warn(`Module ${moduleId} not found`);
+      window.debugLog(`[ModuleFramework] Warning: Module ${moduleId} not found for unloading.`);
       return false;
     }
     
     if (module.status !== MODULE_STATUS.ACTIVE) {
-      console.warn(`Module ${moduleId} is not active`);
+      window.debugLog(`[ModuleFramework] Warning: Module ${moduleId} is not active, cannot unload.`);
       return false;
     }
     
@@ -342,7 +351,9 @@ const ModuleFramework = (function() {
     );
     
     if (dependents.length > 0) {
-      console.warn(`Cannot unload module ${moduleId} because it is a dependency for:`, dependents.map(m => m.id));
+      const errorMsg = `[ModuleFramework] Cannot unload module ${moduleId} because it is a dependency for: ${dependents.map(m => m.id).join(', ')}`;
+      window.debugLog(errorMsg);
+      if (PRODUCTION_CONFIG && !PRODUCTION_CONFIG.debug) console.warn(errorMsg); // Important warning
       return false;
     }
     
@@ -350,8 +361,9 @@ const ModuleFramework = (function() {
     if (module.instance && typeof module.instance.destroy === 'function') {
       try {
         module.instance.destroy();
+        window.debugLog(`[ModuleFramework] Module ${moduleId} destroy() method called.`);
       } catch (error) {
-        console.error(`Error destroying module ${moduleId}:`, error);
+        console.error(`[ModuleFramework] Error destroying module ${moduleId}:`, error); // Keep critical error
       }
     }
     
@@ -365,7 +377,7 @@ const ModuleFramework = (function() {
       name: module.name
     });
     
-    window.debugLog(`Module ${module.name} (${moduleId}) unloaded`);
+    window.debugLog(`[ModuleFramework] Module ${module.name} (${moduleId}) unloaded.`);
     
     return true;
   }
@@ -489,25 +501,31 @@ const ModuleFramework = (function() {
     window.debugLog('AlgorithmPress Module Framework initialized');
     
     // Check for previously registered modules
-    const modules = Object.keys(window).filter(key => {
+    // This behavior might be too implicit for a robust framework.
+    // It's generally better to explicitly register all modules.
+    // For now, converting to debugLog.
+    const preloadedModules = Object.keys(window).filter(key => {
       return typeof window[key] === 'object' && 
              window[key] !== null && 
-             typeof window[key]._moduleId === 'string';
+             typeof window[key]._moduleId === 'string'; // Assuming a convention for preloaded modules
     });
     
-    if (modules.length > 0) {
-      console.log(`Found ${modules.length} pre-loaded modules:`, modules);
+    if (preloadedModules.length > 0) {
+      window.debugLog(`[ModuleFramework] Found ${preloadedModules.length} potential pre-loaded modules:`, preloadedModules);
       
       // Auto-register pre-loaded modules
-      modules.forEach(key => {
+      preloadedModules.forEach(key => {
         const module = window[key];
-        
-        registerModule({
-          id: module._moduleId,
-          name: module._moduleName || module._moduleId,
-          version: module._moduleVersion || '1.0.0',
-          instance: module
-        });
+        // Ensure we don't re-register if already handled by explicit registration
+        if (!_modules[module._moduleId]) {
+            registerModule({
+            id: module._moduleId,
+            name: module._moduleName || module._moduleId,
+            version: module._moduleVersion || '1.0.0',
+            instance: module,
+            status: MODULE_STATUS.ACTIVE // Assume preloaded means active
+            });
+        }
       });
     }
     
@@ -727,16 +745,17 @@ const ModuleFramework = (function() {
 
 // Auto-initialize on DOM ready
 document.addEventListener('DOMContentLoaded', function() {
+  window.debugLog('[ModuleFramework] DOMContentLoaded, initializing ModuleFramework itself.');
   ModuleFramework.initialize();
   
   // Setup dock to work with module framework
   ModuleFramework.on('module:loaded', function(data) {
-    console.log(`Module ${data.name} loaded and ready`);
+    window.debugLog(`[ModuleFramework] Event: Module ${data.name} loaded and ready.`);
     updateDockButtonState(data.id, true);
   });
   
   ModuleFramework.on('module:unloaded', function(data) {
-    console.log(`Module ${data.name} unloaded`);
+    window.debugLog(`[ModuleFramework] Event: Module ${data.name} unloaded.`);
     updateDockButtonState(data.id, false);
   });
   
@@ -770,21 +789,21 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(() => {
               // Toggle panel if module has a togglePanel method
               ModuleFramework.callModuleMethod(moduleId, 'togglePanel')
-                .catch(error => {
-                  console.warn(`Module ${moduleId} doesn't have a togglePanel method:`, error);
+                .catch(err => { // Changed 'error' to 'err' to avoid conflict with outer scope
+                  window.debugLog(`[ModuleFramework] Module ${moduleId} doesn't have a togglePanel method:`, err.message);
                   // Try to toggle the panel directly
                   toggleModulePanel(moduleId);
                 });
             })
-            .catch(error => {
-              console.error(`Failed to load module ${moduleId}:`, error);
+            .catch(error => { // This 'error' is from loadModule
+              console.error(`[ModuleFramework] Failed to load module ${moduleId}:`, error); // Keep critical error
               showToast('error', `Failed to load ${moduleId.replace('-', ' ')}: ${error.message}`);
             });
         } else {
           // Toggle panel if module has a togglePanel method
           ModuleFramework.callModuleMethod(moduleId, 'togglePanel')
-            .catch(error => {
-              console.warn(`Module ${moduleId} doesn't have a togglePanel method:`, error);
+            .catch(err => { // Changed 'error' to 'err'
+              window.debugLog(`[ModuleFramework] Module ${moduleId} doesn't have a togglePanel method:`, err.message);
               // Try to toggle the panel directly
               toggleModulePanel(moduleId);
             });
@@ -803,7 +822,9 @@ document.addEventListener('DOMContentLoaded', function() {
         window.NexusGrid.togglePanel();
         return;
       }
-      console.warn(`Panel for module ${moduleId} not found`);
+      const warnMsg = `[ModuleFramework] Panel for module ${moduleId} not found when trying to toggle.`;
+      window.debugLog(warnMsg);
+      if (PRODUCTION_CONFIG && !PRODUCTION_CONFIG.debug) console.warn(warnMsg);
       return;
     }
     
@@ -830,11 +851,22 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     
-    console.log(`${type}: ${message}`);
+    // console.log(`${type}: ${message}`); // Fallback, ideally showToast is globally available via ErrorMonitoringSystem or similar
+    if (window.ErrorMonitoringSystem && window.ErrorMonitoringSystem.showToast) {
+        window.ErrorMonitoringSystem.showToast(type, message);
+    } else {
+        console.warn(`[ModuleFramework] Toast: (${type}) ${message} (showToast not available)`);
+    }
   }
 });
 
 // Export module framework to global scope
-window.ModuleFramework = ModuleFramework;
-console.log('[ModuleFramework] Assigned to window.ModuleFramework');
-console.log('[ModuleFramework] Script end');
+if (typeof window !== 'undefined') {
+    window.ModuleFramework = ModuleFramework;
+    if (typeof window.debugLog === 'function') {
+        window.debugLog('[ModuleFramework] Assigned to window.ModuleFramework.');
+    } else if (console && console.log && (window.PRODUCTION_CONFIG ? window.PRODUCTION_CONFIG.debug : false) ) {
+        console.log('[ModuleFramework] Assigned to window.ModuleFramework (debugLog not ready).');
+    }
+}
+// window.debugLog('[ModuleFramework] Script end'); // Removed

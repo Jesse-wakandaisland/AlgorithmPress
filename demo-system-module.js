@@ -213,6 +213,21 @@ const DemoSystem = (function() {
       ]
     },
     {
+      id: 'api-weather-app', // New ID
+      name: 'API-Powered Weather App',
+      description: 'A weather app that can be powered by an API configured in API Hub.',
+      category: 'web-app',
+      image: 'weather-app.jpg', // Can reuse or use a new one
+      difficulty: 'intermediate',
+      technologies: ['PHP', 'JavaScript', 'APIs'],
+      features: [
+        'Current weather conditions (via API Hub)',
+        'Location search',
+        'Dynamic data fetching'
+      ],
+      expectedApiName: "Weather API" // Custom property
+    },
+    {
       id: 'note-taking',
       name: 'Note Taking App',
       description: 'A simple note taking application',
@@ -950,24 +965,51 @@ const DemoSystem = (function() {
       let progress = 0;
       const progressBar = dialog.querySelector('.progress-bar');
       const progressStatus = dialog.querySelector('.progress-status');
+      let apiMessage = '';
+
+      // API Hub Integration Check
+      if (template.expectedApiName) {
+        try {
+          const storedEndpoints = localStorage.getItem('apiHubEndpoints_v2'); // Key from ApiManagerApp
+          if (storedEndpoints) {
+            const endpoints = JSON.parse(storedEndpoints);
+            const foundApi = endpoints.find((ep: any) => ep.name === template.expectedApiName);
+            if (foundApi) {
+              apiMessage = ` Note: This demo will attempt to use API '${foundApi.name}' (${foundApi.url}) from API Hub.`;
+              console.log(`[DemoSystem] Found required API for demo: ${foundApi.name} - ${foundApi.url}`);
+            } else {
+              apiMessage = ` Warning: Required API '${template.expectedApiName}' not found in API Hub. Demo might not function correctly.`;
+              console.warn(`[DemoSystem] API '${template.expectedApiName}' not found for demo.`);
+            }
+          } else {
+            apiMessage = ` Warning: API Hub data not found. Demo '${template.name}' might require manual API configuration.`;
+            console.warn(`[DemoSystem] No API Hub endpoint data found in localStorage.`);
+          }
+        } catch (e) {
+          console.error('[DemoSystem] Error accessing API Hub data from localStorage:', e);
+          apiMessage = ' Error checking API Hub configuration.';
+        }
+      }
       
       const progressInterval = setInterval(() => {
         progress += 5;
         progressBar.style.width = `${progress}%`;
         progressBar.setAttribute('aria-valuenow', progress);
         
-        if (progress === 25) {
-          progressStatus.textContent = 'Generating project files...';
-        } else if (progress === 50) {
-          progressStatus.textContent = 'Adding template code...';
-        } else if (progress === 75) {
-          progressStatus.textContent = 'Finalizing project...';
+        if (progress <= 20) { // Adjusted timing to show API message early
+            progressStatus.textContent = `Preparing project...${apiMessage}`;
+        } else if (progress <= 40) {
+            progressStatus.textContent = 'Generating project files...';
+        } else if (progress <= 60) {
+            progressStatus.textContent = 'Adding template code...';
+        } else if (progress <= 80) {
+            progressStatus.textContent = 'Finalizing project...';
         }
         
         if (progress >= 100) {
           clearInterval(progressInterval);
           
-          progressStatus.textContent = 'Project created successfully!';
+          progressStatus.textContent = `Project created successfully!${apiMessage}`;
           
           // Enable close button
           dialog.querySelector('.cancel-create-btn').disabled = false;

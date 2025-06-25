@@ -1,12 +1,13 @@
 /**
+/**
  * Production Initialization Script for AlgorithmPress
  * Ensures all modules are properly integrated and production-ready
  */
-console.log('[ProductionInitialization] Script start');
+// console.log('[ProductionInitialization] Script execution start.'); // Removed for production
 
 (function() {
   'use strict';
-  console.log('[ProductionInitialization] IIFE start');
+  // console.log('[ProductionInitialization] IIFE start.'); // Removed for production
 
   // Production configuration
   const PRODUCTION_CONFIG = {
@@ -20,13 +21,14 @@ console.log('[ProductionInitialization] Script start');
   };
 
   let initializationComplete = false;
-  let initializationStartTime = Date.now();
+  let initializationStartTime = 0; // Will be set when initializeProduction is called
 
   /**
    * Main production initialization
    */
   async function initializeProduction() {
-    console.log('🏭 Starting AlgorithmPress Production Initialization...');
+    initializationStartTime = Date.now();
+    window.debugLog('🏭 Starting AlgorithmPress Production Initialization...');
     
     try {
       // Step 1: Wait for DOM to be ready
@@ -50,7 +52,10 @@ console.log('[ProductionInitialization] Script start');
       initializationComplete = true;
       const totalTime = Date.now() - initializationStartTime;
       
-      console.log(`✅ AlgorithmPress Production Ready! (${totalTime}ms)`);
+      window.debugLog(`✅ AlgorithmPress Production Ready! (${totalTime}ms)`);
+      if (PRODUCTION_CONFIG.debug) { // Keep this important log if debug is true
+        console.log(`✅ AlgorithmPress Production Ready! (${totalTime}ms)`);
+      }
       
       // Notify parent window if in iframe
       notifyParentWindow('production_ready', {
@@ -60,7 +65,12 @@ console.log('[ProductionInitialization] Script start');
       });
       
     } catch (error) {
-      console.error('❌ Production initialization failed:', error);
+      // Use ErrorMonitoringSystem if available, otherwise console.error
+      if (window.ErrorMonitoringSystem && window.ErrorMonitoringSystem.logError) {
+        window.ErrorMonitoringSystem.logError('critical', 'Production initialization failed', { error: error.message, stack: error.stack }, error);
+      } else {
+        console.error('❌ Production initialization failed:', error);
+      }
       
       // Attempt emergency fallback
       await emergencyFallback(error);
@@ -93,7 +103,7 @@ console.log('[ProductionInitialization] Script start');
   async function initializeDiagnostics() {
     if (!PRODUCTION_CONFIG.enableDiagnostics) return;
     
-    console.log('🔍 Initializing production diagnostics...');
+    window.debugLog('🔍 Initializing production diagnostics...');
     
     // Wait for diagnostics to be available
     await waitForGlobal('ProductionDiagnostics', 5000);
@@ -101,9 +111,9 @@ console.log('[ProductionInitialization] Script start');
     if (window.ProductionDiagnostics) {
       try {
         await window.ProductionDiagnostics.initialize();
-        console.log('✅ Production diagnostics initialized');
+        window.debugLog('✅ Production diagnostics initialized');
       } catch (error) {
-        console.warn('⚠️ Diagnostics initialization failed:', error);
+        console.warn('⚠️ Diagnostics initialization failed:', error); // Keep this warning
       }
     }
   }
@@ -112,7 +122,7 @@ console.log('[ProductionInitialization] Script start');
    * Initialize core system
    */
   async function initializeCoreSystem() {
-    console.log('🔧 Initializing core system...');
+    window.debugLog('[ProductionInitialization] 🔧 Initializing core system...');
     
     // Ensure critical modules are loaded
     const criticalModules = [
@@ -123,15 +133,20 @@ console.log('[ProductionInitialization] Script start');
     ];
     
     for (const module of criticalModules) {
+      window.debugLog(`[ProductionInitialization] Waiting for global: ${module}`);
       await waitForGlobal(module, PRODUCTION_CONFIG.moduleTimeout);
       if (!window[module]) {
+        // This is critical, so a console.error is warranted even in production for initial setup issues.
+        console.error(`[ProductionInitialization] CRITICAL: Module ${module} not available after timeout.`);
         throw new Error(`Critical module not available: ${module}`);
       }
+      window.debugLog(`[ProductionInitialization] Global ${module} is available.`);
     }
     
     // Initialize error monitoring first
     if (window.ErrorMonitoringSystem) {
       try {
+        window.debugLog('[ProductionInitialization] Initializing ErrorMonitoringSystem...');
         // TODO: Configure remoteEndpoint from a global config or environment variable
         const remoteLoggingEndpoint = null; // Example: window.APP_CONFIG.REMOTE_LOG_URL || null;
 
@@ -142,9 +157,9 @@ console.log('[ProductionInitialization] Script start');
           enableUserNotifications: false, // User notifications can be enabled if a proper system is in place
           enablePerformanceMonitoring: PRODUCTION_CONFIG.enablePerformanceMonitoring
         });
-        console.log('✅ Error monitoring system initialized');
+        window.debugLog('[ProductionInitialization] ✅ Error monitoring system initialized');
       } catch (error) {
-        console.error('❌ Error monitoring initialization failed:', error);
+        console.error('[ProductionInitialization] ❌ Error monitoring initialization failed:', error); // Keep critical error
         throw error;
       }
     }
@@ -153,22 +168,26 @@ console.log('[ProductionInitialization] Script start');
     let activeStorageConfig = null;
     if (window.StorageConfigManager) {
       try {
+        window.debugLog('[ProductionInitialization] Initializing StorageConfigManager...');
         await window.StorageConfigManager.initialize();
-        console.log('✅ Storage config manager initialized');
+        window.debugLog('[ProductionInitialization] ✅ Storage config manager initialized');
         activeStorageConfig = await window.StorageConfigManager.getActiveStorageSettings();
         if (activeStorageConfig) {
-          console.log(`✅ Active storage settings loaded: ${activeStorageConfig.providerType}`);
+          window.debugLog(`[ProductionInitialization] ✅ Active storage settings loaded: ${activeStorageConfig.providerType}`);
         } else {
-          console.log('ℹ️ No active storage settings found, will use defaults.');
+          window.debugLog('[ProductionInitialization] ℹ️ No active storage settings found, will use defaults.');
         }
       } catch (error) {
-        console.error('❌ Storage config manager initialization or loading active settings failed:', error);
+        console.error('[ProductionInitialization] ❌ Storage config manager initialization or loading active settings failed:', error); // Keep critical error
         // Proceed with default storage if config manager fails
       }
+    } else {
+      console.error('[ProductionInitialization] CRITICAL: StorageConfigManager is not defined on window.'); // Keep critical error
     }
     
     if (window.UnifiedStorage) {
       try {
+        window.debugLog('[ProductionInitialization] Initializing UnifiedStorage...');
         let unifiedStorageInitOptions = {
           primaryProvider: 'localStorage', // Default
           fallbackProviders: ['localStorage'],
@@ -182,50 +201,41 @@ console.log('[ProductionInitialization] Script start');
         };
 
         if (activeStorageConfig && activeStorageConfig.providerType && activeStorageConfig.config) {
+          window.debugLog(`[ProductionInitialization] Using active storage config for UnifiedStorage: ${activeStorageConfig.providerType}`);
           unifiedStorageInitOptions.primaryProvider = activeStorageConfig.providerType;
-          // Ensure the primary provider is also in fallback if it's not localStorage
           if (activeStorageConfig.providerType !== 'localStorage') {
             unifiedStorageInitOptions.fallbackProviders = [activeStorageConfig.providerType, 'localStorage'];
           } else {
              unifiedStorageInitOptions.fallbackProviders = ['localStorage'];
           }
-          // Pass the specific configuration for the chosen provider
           unifiedStorageInitOptions.providers[activeStorageConfig.providerType] = activeStorageConfig.config;
-
-          // Also, ensure any other configurations from StorageConfigManager are loaded
-          // This part might need more sophisticated merging if multiple providers can be active simultaneously
-          // For now, we prioritize the activeStorageConfig
-          const allStoredConfigs = await window.StorageConfigManager.exportConfigurations(); // This is encrypted
-                                                                                             // We need a method to get decrypted configs for UnifiedStorage
-                                                                                             // Or StorageConfigManager itself should initialize UnifiedStorage providers
-          // For now, let's assume activeStorageConfig.config is what UnifiedStorage needs for its primary provider
-          // unifiedStorageInitOptions.providers = { ... allDecryptedConfigs, [activeStorageConfig.providerType]: activeStorageConfig.config };
-
         } else {
-          console.log('ℹ️ Initializing UnifiedStorage with default localStorage.');
+          window.debugLog('[ProductionInitialization] ℹ️ Initializing UnifiedStorage with default localStorage.');
         }
 
         await window.UnifiedStorage.initialize(unifiedStorageInitOptions);
-        console.log(`✅ Unified storage initialized with primary: ${window.UnifiedStorage.getStats().primaryProvider}`);
+        window.debugLog(`[ProductionInitialization] ✅ Unified storage initialized with primary: ${window.UnifiedStorage.getStats().primaryProvider}`);
       } catch (error) {
-        console.warn('⚠️ Unified storage initialization failed, attempting fallback to basic localStorage:', error);
+        console.warn('[ProductionInitialization] ⚠️ Unified storage initialization failed, attempting fallback to basic localStorage:', error); // Keep warning
         try {
-          // Simplified fallback initialization
           await window.UnifiedStorage.initialize({ primaryProvider: 'localStorage', fallbackProviders: ['localStorage'] });
-          console.log('✅ Unified storage initialized with basic localStorage fallback.');
+          window.debugLog('[ProductionInitialization] ✅ Unified storage initialized with basic localStorage fallback.');
         } catch (fallbackError) {
-          console.error('❌ Basic localStorage fallback for UnifiedStorage also failed:', fallbackError);
+          console.error('[ProductionInitialization] ❌ Basic localStorage fallback for UnifiedStorage also failed:', fallbackError); // Keep critical error
         }
       }
+    } else {
+        console.error('[ProductionInitialization] CRITICAL: UnifiedStorage is not defined on window.'); // Keep critical error
     }
     
     // Initialize module framework
     if (window.ModuleFramework) {
       try {
+        window.debugLog('[ProductionInitialization] Initializing ModuleFramework...');
         await window.ModuleFramework.initialize();
-        console.log('✅ Module framework initialized');
+        window.debugLog('[ProductionInitialization] ✅ Module framework initialized');
       } catch (error) {
-        console.error('❌ Module framework initialization failed:', error);
+        console.error('[ProductionInitialization] ❌ Module framework initialization failed:', error); // Keep critical error
         throw error;
       }
     }
@@ -235,16 +245,16 @@ console.log('[ProductionInitialization] Script start');
    * Initialize integration helper
    */
   async function initializeIntegrationHelper() {
-    console.log('🔗 Initializing integration helper...');
+    window.debugLog('🔗 Initializing integration helper...');
     
     await waitForGlobal('ProductionIntegrationHelper', 10000);
     
     if (window.ProductionIntegrationHelper) {
       try {
         await window.ProductionIntegrationHelper.initialize();
-        console.log('✅ Integration helper initialized');
+        window.debugLog('✅ Integration helper initialized');
       } catch (error) {
-        console.warn('⚠️ Integration helper initialization failed:', error);
+        console.warn('⚠️ Integration helper initialization failed:', error); // Keep warning
       }
     }
   }
@@ -253,7 +263,7 @@ console.log('[ProductionInitialization] Script start');
    * Verify production readiness
    */
   async function verifyProductionReadiness() {
-    console.log('🔍 Verifying production readiness...');
+    window.debugLog('🔍 Verifying production readiness...');
     
     const checks = [
       {
@@ -287,17 +297,20 @@ console.log('[ProductionInitialization] Script start');
       try {
         if (!check.check()) {
           failedChecks.push(check.name);
+          window.debugLog(`❌ Production check failed: ${check.name}`);
         } else {
-          console.log(`✅ Production check passed: ${check.name}`);
+          window.debugLog(`✅ Production check passed: ${check.name}`);
         }
       } catch (error) {
-        console.error(`❌ Production check failed: ${check.name}`, error);
+        console.error(`❌ Production check FAILED (exception): ${check.name}`, error); // Keep critical error
         failedChecks.push(check.name);
       }
     }
     
     if (failedChecks.length > 0) {
-      throw new Error(`Production readiness checks failed: ${failedChecks.join(', ')}`);
+      const errorMsg = `Production readiness checks failed: ${failedChecks.join(', ')}`;
+      console.error(`❌ ${errorMsg}`); // Keep critical error
+      throw new Error(errorMsg);
     }
     
     // Test basic functionality
@@ -312,6 +325,7 @@ console.log('[ProductionInitialization] Script start');
         if (!testData || testData.test !== 'production_ready') {
           throw new Error('Storage functionality test failed');
         }
+        window.debugLog('Storage functionality test passed.');
       }
       
       // Test error monitoring
@@ -319,10 +333,10 @@ console.log('[ProductionInitialization] Script start');
         window.ErrorMonitoringSystem.logInfo('system', 'Production readiness verification completed');
       }
       
-      console.log('✅ Production functionality tests passed');
+      window.debugLog('✅ Production functionality tests passed');
       
     } catch (error) {
-      console.error('❌ Production functionality tests failed:', error);
+      console.error('❌ Production functionality tests failed:', error); // Keep critical error
       throw error;
     }
   }
@@ -331,12 +345,12 @@ console.log('[ProductionInitialization] Script start');
    * Setup production monitoring
    */
   function setupProductionMonitoring() {
-    if (!PRODUCTION_CONFIG.enablePerformanceMonitoring) return;
+    if (!PRODUCTION_CONFIG.enablePerformanceMonitoring && !PRODUCTION_CONFIG.enableErrorReporting) return;
     
-    console.log('📊 Setting up production monitoring...');
+    window.debugLog('📊 Setting up production monitoring...');
     
     // Monitor performance
-    if (window.performance && window.performance.observer) {
+    if (PRODUCTION_CONFIG.enablePerformanceMonitoring && window.performance && window.performance.observer) {
       try {
         const observer = new PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
@@ -348,51 +362,51 @@ console.log('[ProductionInitialization] Script start');
         
         observer.observe({ entryTypes: ['measure', 'navigation'] });
       } catch (error) {
-        console.warn('⚠️ Performance monitoring setup failed:', error);
+        console.warn('⚠️ Performance monitoring setup failed:', error); // Keep warning
       }
     }
     
     // Monitor memory usage
-    if (window.performance && window.performance.memory) {
+    if (PRODUCTION_CONFIG.enablePerformanceMonitoring && window.performance && window.performance.memory) {
       setInterval(() => {
         const memory = window.performance.memory;
         const usedMB = Math.round(memory.usedJSHeapSize / 1048576);
         const totalMB = Math.round(memory.totalJSHeapSize / 1048576);
         
         if (usedMB > 100) { // Log high memory usage
+          // This is a warning, so keep it if performance monitoring is on.
           console.warn(`⚠️ High memory usage: ${usedMB}MB / ${totalMB}MB`);
         }
       }, 60000); // Check every minute
     }
     
-    // Monitor errors
-    window.addEventListener('error', (event) => {
-      if (window.ErrorMonitoringSystem) {
-        window.ErrorMonitoringSystem.logError('runtime', 'Unhandled error', {
-          message: event.message,
-          filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno
-        }, event.error);
-      }
-    });
-    
-    window.addEventListener('unhandledrejection', (event) => {
-      if (window.ErrorMonitoringSystem) {
-        window.ErrorMonitoringSystem.logError('runtime', 'Unhandled promise rejection', {
-          reason: event.reason
+    // Monitor errors - This should always be active if ErrorMonitoringSystem is available and enableErrorReporting is true
+    if (PRODUCTION_CONFIG.enableErrorReporting && window.ErrorMonitoringSystem && typeof window.ErrorMonitoringSystem.logError === 'function') {
+        window.addEventListener('error', (event) => {
+            window.ErrorMonitoringSystem.logError('runtime', 'Unhandled error', {
+            message: event.message,
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno
+            }, event.error);
         });
-      }
-    });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            window.ErrorMonitoringSystem.logError('runtime', 'Unhandled promise rejection', {
+            reason: event.reason
+            });
+        });
+        window.debugLog('Global error handlers attached to ErrorMonitoringSystem.');
+    }
     
-    console.log('✅ Production monitoring setup complete');
+    window.debugLog('✅ Production monitoring setup complete');
   }
 
   /**
    * Emergency fallback for critical failures
    */
   async function emergencyFallback(error) {
-    console.log('🚨 Activating emergency fallback...');
+    console.error('🚨 Activating emergency fallback due to error:', error.message); // Keep critical error
     
     // Create minimal error logging
     if (!window.ErrorMonitoringSystem) {
@@ -429,12 +443,14 @@ console.log('[ProductionInitialization] Script start');
     }
     
     // Log the emergency fallback
-    window.ErrorMonitoringSystem.logError('system', 'Emergency fallback activated', {
-      originalError: error.message,
-      timestamp: new Date().toISOString()
-    });
-    
-    console.log('✅ Emergency fallback activated');
+    if (window.ErrorMonitoringSystem && window.ErrorMonitoringSystem.logError) {
+        window.ErrorMonitoringSystem.logError('system', 'Emergency fallback activated', {
+        originalError: error.message,
+        timestamp: new Date().toISOString()
+        });
+    }
+    // console.error is already done at the start of this function.
+    window.debugLog('✅ Emergency fallback setup complete.');
   }
 
   /**
@@ -464,17 +480,64 @@ console.log('[ProductionInitialization] Script start');
   function notifyParentWindow(event, data) {
     try {
       if (window.parent && window.parent !== window) {
-        // TODO: Replace '*' with a specific target origin for postMessage if the embedding context is known and trusted.
-        // Using '*' can be a security risk if the application is embedded in malicious sites.
-        // For a general purpose tool, this might need to be configurable or carefully documented.
+        let targetOrigin = '*';
+        const primaryKnownOrigin = 'https://algorithmpress.com';
+
+        // Check if running inside an iframe and try to determine parent origin
+        if (window.location.ancestorOrigins && window.location.ancestorOrigins.length > 0) {
+          const parentOrigin = window.location.ancestorOrigins[0];
+          if (parentOrigin === primaryKnownOrigin) {
+            targetOrigin = primaryKnownOrigin;
+          } else if (parentOrigin.startsWith('file://')) {
+            // Allow '*' for file:// protocol (local use), but warn if not in debug.
+            // No, for file://, the origin is 'null' or specific file path, '*' is still the only reliable way for general local files.
+            // The main concern is untrusted remote origins.
+            window.debugLog(`[ProductionInitialization] postMessage target is '*' for local file origin: ${parentOrigin}. This is expected for local use.`);
+          } else {
+            // For other origins, if not the primary known one, warn about using '*'
+             const warnMsg = `[ProductionInitialization] WARNING: postMessage target is '*' for parent origin: ${parentOrigin}. If embedding on a new trusted domain, update targetOrigin in production-initialization.js.`;
+             window.debugLog(warnMsg);
+             if (PRODUCTION_CONFIG && !PRODUCTION_CONFIG.debug) {
+                console.warn(warnMsg);
+             }
+          }
+        } else if (document.referrer) {
+            // Fallback for older browsers or specific iframe setups, less reliable
+            try {
+                const referrerOrigin = new URL(document.referrer).origin;
+                if (referrerOrigin === primaryKnownOrigin) {
+                    targetOrigin = primaryKnownOrigin;
+                } else if (referrerOrigin.startsWith('file://')) {
+                    window.debugLog(`[ProductionInitialization] postMessage target is '*' due to local file referrer: ${referrerOrigin}.`);
+                } else {
+                    const warnMsg = `[ProductionInitialization] WARNING: postMessage target is '*' for referrer origin: ${referrerOrigin}. Consider updating targetOrigin if this is a trusted embedder.`;
+                    window.debugLog(warnMsg);
+                    if (PRODUCTION_CONFIG && !PRODUCTION_CONFIG.debug) {
+                        console.warn(warnMsg);
+                    }
+                }
+            } catch (e) {
+                 window.debugLog(`[ProductionInitialization] Could not parse document.referrer: ${document.referrer}. Using '*' for postMessage.`);
+            }
+        } else {
+          // If ancestorOrigins is not supported and no referrer, or if parent is not the primary known one.
+          const warnMsg = `[ProductionInitialization] WARNING: Using '*' as targetOrigin for postMessage due to unknown or non-primary parent origin. This is a security risk if embedded in untrusted third-party sites.`;
+          window.debugLog(warnMsg);
+          if (PRODUCTION_CONFIG && !PRODUCTION_CONFIG.debug) { // Show warning if not in debug mode
+            console.warn(warnMsg);
+          }
+        }
+
+        window.debugLog(`[ProductionInitialization] Notifying parent window. Event: ${event}, Target Origin: ${targetOrigin}`);
         window.parent.postMessage({
           source: 'algorithmpress',
           event,
           data
-        }, '*');
+        }, targetOrigin);
       }
     } catch (error) {
-      // Ignore postMessage errors
+      // Ignore postMessage errors, but log in debug mode
+      window.debugLog('[ProductionInitialization] Error in notifyParentWindow:', error);
     }
   }
 
@@ -508,10 +571,10 @@ console.log('[ProductionInitialization] Script start');
 
   // Start initialization after a short delay
   setTimeout(() => {
-    console.log('[ProductionInitialization] Calling initializeProduction after delay.');
+    window.debugLog(`[ProductionInitialization] Calling initializeProduction after ${PRODUCTION_CONFIG.initializationDelay}ms delay.`);
     initializeProduction();
   }, PRODUCTION_CONFIG.initializationDelay);
 
-  console.log('🏭 Production initialization script loaded, IIFE end');
+  window.debugLog('[ProductionInitialization] IIFE end. Initialization process will start after delay.');
 })();
-console.log('[ProductionInitialization] Script end');
+// console.log('[ProductionInitialization] Script execution end.'); // Removed for production

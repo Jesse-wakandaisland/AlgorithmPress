@@ -32,7 +32,7 @@ const ApiGateway = (function() {
    */
   function initialize(options = {}) {
     if (_initialized) {
-      console.warn('API Gateway already initialized');
+      window.debugLog('[ApiGateway] Warning: API Gateway already initialized.');
       return;
     }
     
@@ -45,17 +45,18 @@ const ApiGateway = (function() {
         id: 'api-gateway',
         name: 'API Gateway',
         version: '1.0.0',
-        instance: ApiGateway,
+        instance: ApiGateway, // Assuming ApiGateway is the object itself
         status: window.ModuleFramework.MODULE_STATUS.ACTIVE
       });
       
       // Listen for module events
       window.ModuleFramework.on('module:loaded', moduleLoaded);
       window.ModuleFramework.on('module:unloaded', moduleUnloaded);
+      window.debugLog('[ApiGateway] Registered with ModuleFramework and listening for module events.');
     }
     
     _initialized = true;
-    console.log('API Gateway initialized');
+    window.debugLog('[ApiGateway] Initialized.');
     
     if (options.apis) {
       // Register initial APIs
@@ -112,13 +113,15 @@ const ApiGateway = (function() {
    */
   function registerApi(api) {
     if (!api || !api.namespace || !api.methods) {
-      console.error('Invalid API configuration', api);
+      console.error('[ApiGateway] Invalid API configuration:', api); // Keep critical error
       return false;
     }
     
     if (_apis[api.namespace]) {
-      console.warn(`API namespace ${api.namespace} is already registered`);
-      return false;
+      window.debugLog(`[ApiGateway] Warning: API namespace ${api.namespace} is already registered. Overwriting.`);
+      // Allow overwriting for flexibility, but log it. Or decide if this should be an error.
+      // For now, let's allow overwrite but log as a warning if not in debug mode.
+      if (!PRODUCTION_CONFIG.debug) console.warn(`[ApiGateway] API namespace ${api.namespace} was overwritten.`);
     }
     
     // Default configuration
@@ -136,7 +139,7 @@ const ApiGateway = (function() {
       registeredAt: Date.now()
     };
     
-    console.log(`API ${api.namespace} v${defaultApi.version} registered with gateway`);
+    window.debugLog(`[ApiGateway] API ${api.namespace} v${defaultApi.version} registered.`);
     
     return true;
   }
@@ -148,14 +151,14 @@ const ApiGateway = (function() {
    */
   function unregisterApi(namespace) {
     if (!_apis[namespace]) {
-      console.warn(`API namespace ${namespace} not found`);
+      window.debugLog(`[ApiGateway] Warning: API namespace ${namespace} not found for unregistration.`);
       return false;
     }
     
     // Remove API
     delete _apis[namespace];
     
-    console.log(`API ${namespace} unregistered from gateway`);
+    window.debugLog(`[ApiGateway] API ${namespace} unregistered.`);
     
     return true;
   }
@@ -342,7 +345,9 @@ const ApiGateway = (function() {
     // TODO: Implement more sophisticated permission checking
     // For now, if not a wildcard, and no specific permission matched (which is not implemented yet), deny.
     // This makes it default deny instead of default allow.
-    console.warn(`API Gateway: Permission check for caller '${caller}' on permissions '${permissions.join(',')}' defaulted to deny. Implement sophisticated checks.`);
+    const permMessage = `[ApiGateway] Permission check for caller '${caller}' on permissions '${permissions.join(',')}' defaulted to deny. Implement sophisticated checks.`;
+    window.debugLog(permMessage);
+    if (!PRODUCTION_CONFIG.debug) console.warn(permMessage); // Show warning in prod if not in debug mode, as this is a security default.
     return false;
   }
   
@@ -511,9 +516,11 @@ const ApiGateway = (function() {
 
 // Auto-initialize on DOM ready
 document.addEventListener('DOMContentLoaded', function() {
+  window.debugLog('[ApiGateway] DOMContentLoaded, initializing ApiGateway...');
   ApiGateway.initialize();
   
   // Register built-in APIs
+  window.debugLog('[ApiGateway] Registering built-in system API...');
   ApiGateway.registerApi({
     namespace: 'system',
     provider: 'api-gateway',
@@ -525,7 +532,6 @@ document.addEventListener('DOMContentLoaded', function() {
           if (window.ModuleFramework) {
             return window.ModuleFramework.getModules();
           }
-          
           return [];
         },
         permissions: ['*'],
@@ -542,7 +548,7 @@ document.addEventListener('DOMContentLoaded', function() {
         handler: function(params) {
           return ApiGateway.getHistory(params);
         },
-        permissions: ['admin'],
+        permissions: ['admin'], // Example permission
         description: 'Get API call history',
         schema: {
           properties: {
@@ -560,12 +566,21 @@ document.addEventListener('DOMContentLoaded', function() {
           ApiGateway.clearHistory();
           return { success: true };
         },
-        permissions: ['admin'],
+        permissions: ['admin'], // Example permission
         description: 'Clear API call history'
       }
     }
   });
+  window.debugLog('[ApiGateway] Built-in system API registered.');
 });
 
 // Export API gateway to global scope
-window.ApiGateway = ApiGateway;
+if (typeof window !== 'undefined') {
+    window.ApiGateway = ApiGateway;
+    // Conditional log for assignment, as debugLog might depend on PRODUCTION_CONFIG
+    if (typeof window.debugLog === 'function') {
+        window.debugLog('[ApiGateway] Assigned to window.ApiGateway.');
+    } else if (console && console.log && (window.PRODUCTION_CONFIG ? window.PRODUCTION_CONFIG.debug : false) ) {
+        console.log('[ApiGateway] Assigned to window.ApiGateway (debugLog not ready).');
+    }
+}

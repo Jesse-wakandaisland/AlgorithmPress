@@ -1,13 +1,15 @@
 /**
  * WordPress Connector for PHP-WASM Builder
+/**
+ * WordPress Connector for PHP-WASM Builder
  * A comprehensive WordPress integration system that connects to WordPress instances,
  * exposes plugin APIs, and provides a foundation for micro-module architecture.
  */
-console.log('[WordPressConnector] Script start');
+// console.log('[WordPressConnector] Script execution start.'); // Removed
 
 const WordPressConnector = (function() {
     // Private variables
-    console.log('[WordPressConnector] IIFE start');
+    // console.log('[WordPressConnector] IIFE start.'); // Removed
     let _initialized = false;
     let _sites = [];
     let _currentSite = null;
@@ -54,7 +56,7 @@ const WordPressConnector = (function() {
     function init() {
         if (_initialized) return;
         
-        console.log('Initializing WordPress Connector...');
+        window.debugLog('[WordPressConnector] Initializing WordPress Connector...');
         
         // Load saved data from storage
         _loadFromStorage();
@@ -79,7 +81,7 @@ const WordPressConnector = (function() {
         _registerEventListeners();
         
         _initialized = true;
-        console.log('WordPress Connector initialized successfully');
+        window.debugLog('[WordPressConnector] WordPress Connector initialized successfully');
     }
     
     /**
@@ -122,7 +124,7 @@ const WordPressConnector = (function() {
                             document.querySelector('header');
         
         if (!navContainer) {
-            console.log('Navigation container not found, creating one');
+            window.debugLog('[WordPressConnector] Navigation container not found, creating one.');
             // Create a navigation container if none exists
             const newNavContainer = document.createElement('div');
             newNavContainer.className = 'wp-connector-nav-container';
@@ -168,7 +170,7 @@ const WordPressConnector = (function() {
                            document.body;
         
         // Log which container we're using
-        console.log('Using container for WordPress Connector panel:', mainContainer.tagName || mainContainer.className);
+        window.debugLog('[WordPressConnector] Using container for WordPress Connector panel:', mainContainer.tagName || mainContainer.className);
         
         _wpConnectorPanel = document.createElement('div');
         _wpConnectorPanel.className = 'panel wp-connector-panel glass-panel hidden';
@@ -6549,8 +6551,9 @@ const WordPressConnector = (function() {
             };
             
             localStorage.setItem('wp_connector_data', JSON.stringify(dataToStore));
+            window.debugLog('[WordPressConnector] Settings saved to localStorage.');
         } catch (error) {
-            console.error('Failed to save settings to storage:', error);
+            console.error('Failed to save settings to storage:', error); // Keep critical error
         }
     }
     
@@ -8012,13 +8015,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.head.appendChild(styles);
     
     // Initialize the WordPress Connector
+    window.debugLog('[WordPressConnector] Calling WordPressConnector.init() from DOMContentLoaded listener.');
     WordPressConnector.init();
     
     // Expose the WordPress Connector to the global scope for developers
     window.WordPressConnector = WordPressConnector;
-    console.log('[WordPressConnector] Assigned to window.WordPressConnector');
+    window.debugLog('[WordPressConnector] Assigned to window.WordPressConnector.');
 });
-console.log('[WordPressConnector] Script end');
+// window.debugLog('[WordPressConnector] IIFE end.'); // Removed
+// window.debugLog('[WordPressConnector] Script execution end.'); // Removed
 
 /**
  * Module Export for Integration with PHP-WASM Builder
